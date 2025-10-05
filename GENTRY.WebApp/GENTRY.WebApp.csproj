@@ -11,15 +11,19 @@
   <ItemGroup>
     <Compile Remove="Controllers\Interface\**" />
     <Compile Remove="Helpers\**" />
+    <Compile Remove="Helper\**" />
     <Compile Remove="Hub\**" />
     <Content Remove="Controllers\Interface\**" />
     <Content Remove="Helpers\**" />
+    <Content Remove="Helper\**" />
     <Content Remove="Hub\**" />
     <EmbeddedResource Remove="Controllers\Interface\**" />
     <EmbeddedResource Remove="Helpers\**" />
+    <EmbeddedResource Remove="Helper\**" />
     <EmbeddedResource Remove="Hub\**" />
     <None Remove="Controllers\Interface\**" />
     <None Remove="Helpers\**" />
+    <None Remove="Helper\**" />
     <None Remove="Hub\**" />
   </ItemGroup>
 
@@ -48,7 +52,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Helper\" />
+    <Folder Include="wwwroot\" />
     <Folder Include="wwwroot\" />
   </ItemGroup>
 

@@ -4,6 +4,7 @@ using GENTRY.WebApp.Services.DataTransferObjects.UserDTOs;
 using GENTRY.WebApp.Services.DataTransferObjects.ItemDTOs;
 using GENTRY.WebApp.Services.DataTransferObjects.CategoryDTOs;
 using GENTRY.WebApp.Services.DataTransferObjects.ColorDTOs;
+using GENTRY.WebApp.Services.DataTransferObjects.StyleDTOs;
 
 namespace GENTRY.WebApp.Services.Helper
 {
@@ -106,6 +107,12 @@ namespace GENTRY.WebApp.Services.Helper
 
             // Map Color to ColorDto
             CreateMap<Color, ColorDto>().ReverseMap();
+
+            // Map Style to StyleDto
+            CreateMap<Style, StyleDto>()
+                .ForMember(dest => dest.StyleId, opt => opt.MapFrom(src => src.Id))
+                .ReverseMap()
+                .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.StyleId));
         }
     }
 }
