@@ -5,6 +5,8 @@ using GENTRY.WebApp.Services.DataTransferObjects.ItemDTOs;
 using GENTRY.WebApp.Services.DataTransferObjects.CategoryDTOs;
 using GENTRY.WebApp.Services.DataTransferObjects.ColorDTOs;
 using GENTRY.WebApp.Services.DataTransferObjects.StyleDTOs;
+using GENTRY.WebApp.Services.DataTransferObjects.WeatherDTOs;
+using GENTRY.WebApp.Services.DataTransferObjects.OccasionDTOs;
 
 namespace GENTRY.WebApp.Services.Helper
 {

@@ -27,6 +27,8 @@ builder.Services.AddScoped<IFileService, CloudinaryService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IColorService, ColorService>();
 builder.Services.AddScoped<IStyleService, StyleService>();
+builder.Services.AddScoped<IWeatherService, WeatherService>();
+builder.Services.AddScoped<IOccasionService, OccasionService>();
 builder.Services.AddScoped<IOutfitAIService, OutfitAIService>();
 builder.Services.AddScoped<IExceptionHandler, GENTRY.WebApp.Services.ExceptionHandler>();
 builder.Services.AddHttpContextAccessor(); // Để inject vào BaseService
