@@ -1,0 +1,42 @@
+services:
+  web:
+    build: ./RestX.WebApp
+    ports:
+      - "8081:8081"
+    container_name: webapp
+    networks:
+      - restx-net
+    environment:
+      - ASPNETCORE_URLS=http://+:8081
+    depends_on:
+      - sqlserver
+    volumes:
+      - ./RestX.WebApp/wwwroot/Uploads:/app/wwwroot/Uploads
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sqlserver_container
+    ports:
+      - "1433:1433"
+    networks:
+      - restx-net
+    volumes:
+      - sql_data:/var/opt/mssql
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "YourStrong!Passw0rd"
+    restart: unless-stopped
+
+  proxy:
+    build: ./RevertProxy
+    ports:
+      - "80:80"
+    networks:
+      - restx-net
+
+networks:
+  restx-net:
+    driver: bridge
+
+volumes:
+  sql_data:
