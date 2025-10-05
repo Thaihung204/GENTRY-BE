@@ -48,6 +48,8 @@ builder.Services.AddCors(options =>
     });
 });
 
+builder.Services.AddRouting(options => options.LowercaseUrls = true);
+
 // ------------------- COOKIE AUTH -------------------
 //builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
 //    .AddCookie(options =>
