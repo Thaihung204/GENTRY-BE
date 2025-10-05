@@ -115,6 +115,12 @@ namespace GENTRY.WebApp.Services.Helper
                 .ForMember(dest => dest.StyleId, opt => opt.MapFrom(src => src.Id))
                 .ReverseMap()
                 .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.StyleId));
+
+            // Map Weather to WeatherDto
+            CreateMap<Weather, WeatherDto>().ReverseMap();
+
+            // Map Occasion to OccasionDto
+            CreateMap<Occasion, OccasionDto>().ReverseMap();
         }
     }
 }

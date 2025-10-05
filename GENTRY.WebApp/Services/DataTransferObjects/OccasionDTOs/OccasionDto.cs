@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace GENTRY.WebApp.Services.DataTransferObjects.OccasionDTOs
 {
@@ -11,10 +11,5 @@ namespace GENTRY.WebApp.Services.DataTransferObjects.OccasionDTOs
         
         [MaxLength(255)]
         public string? Description { get; set; }
-        
-        [MaxLength(50)]
-        public string? Category { get; set; }
-        
-        public bool IsActive { get; set; } = true;
     }
 }

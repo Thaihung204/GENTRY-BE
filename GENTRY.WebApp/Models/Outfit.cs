@@ -16,8 +16,11 @@ namespace GENTRY.WebApp.Models
         public int? StyleId { get; set; }
 
         public string? Description { get; set; }
-        public string? Occasion { get; set; }
-        public string? WeatherCondition { get; set; }
+        [ForeignKey("Occasion")]
+        public int? OccasionId { get; set; }
+
+        [ForeignKey("Weather")]
+        public int? WeatherId { get; set; }
         public string? Season { get; set; }
         public string? BodyType { get; set; }
 
@@ -28,6 +31,8 @@ namespace GENTRY.WebApp.Models
 
         public virtual User User { get; set; } = null!;
         public virtual Style? Style { get; set; }
+        public virtual Occasion? Occasion { get; set; }
+        public virtual Weather? Weather { get; set; }
         public virtual ICollection<OutfitItem> OutfitItems { get; set; } = new List<OutfitItem>();
         public virtual ICollection<OutfitFeature> OutfitFeatures { get; set; } = new List<OutfitFeature>();
         public virtual ICollection<AiTrainingData> AiTrainingData { get; set; } = new List<AiTrainingData>();

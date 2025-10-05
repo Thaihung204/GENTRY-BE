@@ -177,8 +177,8 @@ namespace GENTRY.WebApp.Services.Services
                 UserId = userId,
                 Name = $"AI Outfit {DateTime.Now:dd/MM/yyyy HH:mm}",
                 Description = description,
-                Occasion = occasion,
-                WeatherCondition = weather,
+                //Occasion = occasion,
+                //WeatherCondition = weather,
                 Season = season,
                 IsAiGenerated = true
             };
