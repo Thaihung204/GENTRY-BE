@@ -30,11 +30,17 @@ builder.Services.AddScoped<IStyleService, StyleService>();
 builder.Services.AddScoped<IWeatherService, WeatherService>();
 builder.Services.AddScoped<IOccasionService, OccasionService>();
 builder.Services.AddScoped<IOutfitAIService, OutfitAIService>();
+builder.Services.AddScoped<IGeminiAIService, GeminiAIService>();
+builder.Services.AddScoped<IAffiliateService, AffiliateService>();
 builder.Services.AddScoped<IExceptionHandler, GENTRY.WebApp.Services.ExceptionHandler>();
 builder.Services.AddHttpContextAccessor(); // Để inject vào BaseService
 
 // ------------------- AutoMapper -------------------
 builder.Services.AddAutoMapper(typeof(Program));
+
+// External HttpClients
+builder.Services.AddHttpClient<GeminiAIService>();
+builder.Services.AddHttpClient<AffiliateService>();
 
 // ------------------- CORS -------------------
 builder.Services.AddCors(options =>
