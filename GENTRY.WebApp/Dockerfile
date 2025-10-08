@@ -11,7 +11,7 @@ EXPOSE 8081
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["./RestX.WebApp.csproj", "."]
+COPY ["./GENTRY.WebApp.csproj", "."]
 RUN dotnet restore 
 COPY . .
 RUN dotnet build -c $BUILD_CONFIGURATION -o /app/build
@@ -19,7 +19,7 @@ RUN dotnet build -c $BUILD_CONFIGURATION -o /app/build
 # This stage is used to publish the service project to be copied to the final stage
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "./RestX.WebApp.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "./GENTRY.WebApp.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
 # This stage is used in production or when running from VS in regular mode (Default when not using the Debug configuration)
 FROM base AS final
@@ -27,4 +27,4 @@ ENV ASPNETCORE_ENVIRONMENT=Production
 ENV ASPNETCORE_URLS=http://+:8081
 WORKDIR /app
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "RestX.WebApp.dll"]
+ENTRYPOINT ["dotnet", "GENTRY.WebApp.dll"]
