@@ -51,6 +51,8 @@ public partial class GENTRYDbContext : DbContext
     public virtual DbSet<AIModelVersion> AIModelVersions { get; set; }
     public virtual DbSet<AffiliateLink> AffiliateLinks { get; set; }
     public virtual DbSet<Admin> Admins { get; set; }
+    public virtual DbSet<Weather> Weathers { get; set; }
+    public virtual DbSet<Occasion> Occasions { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -9,11 +9,15 @@ namespace GENTRY.WebApp.Services.Services
     {
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IUserService _userService;
+        private readonly IJwtService _jwtService;
+        private readonly IConfiguration _configuration;
 
-        public LoginService(IRepository repo, IHttpContextAccessor httpContextAccessor, IUserService userService) : base(repo, httpContextAccessor)
+        public LoginService(IRepository repo, IHttpContextAccessor httpContextAccessor, IUserService userService, IJwtService jwtService, IConfiguration configuration) : base(repo, httpContextAccessor)
         {
             _httpContextAccessor = httpContextAccessor;
             _userService = userService;
+            _jwtService = jwtService;
+            _configuration = configuration;
         }
 
         /// <summary>
@@ -97,13 +101,24 @@ namespace GENTRY.WebApp.Services.Services
                     };
                 }
 
+                // Tạo JWT tokens
+                var accessToken = _jwtService.GenerateAccessToken(user);
+                var refreshToken = _jwtService.GenerateRefreshToken();
+                var expiryInHours = int.Parse(_configuration["JWT:ExpiryInHours"] ?? "24");
+                var tokenExpiry = DateTime.UtcNow.AddHours(expiryInHours);
+
                 return new LoginResponse
                 {
                     Success = true,
                     Message = "Đăng nhập thành công",
                     Email = user.Email,
                     FullName = user.FullName,
-                    Role = user.Role
+                    Role = user.Role,
+                    AccessToken = accessToken,
+                    RefreshToken = refreshToken,
+                    TokenExpiry = tokenExpiry,
+                    IsPremium = user.IsPremium,
+                    IsActive = user.IsActive
                 };
             }
             catch (Exception ex)

@@ -1,7 +1,7 @@
 ﻿using GENTRY.WebApp.Services.Interfaces;
 using GENTRY.WebApp.Services.DataTransferObjects.AuthDTOs;
 using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -13,11 +13,17 @@ namespace GENTRY.WebApp.Controllers
     public class AuthController : BaseController
     {
         private readonly ILoginService _loginService;
+        private readonly IJwtService _jwtService;
+        private readonly IRepository _repository;
+        private readonly IConfiguration _configuration;
 
-        public AuthController(IExceptionHandler exceptionHandler, ILoginService loginService) 
+        public AuthController(IExceptionHandler exceptionHandler, ILoginService loginService, IJwtService jwtService, IRepository repository, IConfiguration configuration) 
             : base(exceptionHandler)
         {
             _loginService = loginService;
+            _jwtService = jwtService;
+            _repository = repository;
+            _configuration = configuration;
         }
 
         /// <summary>
@@ -96,49 +102,8 @@ namespace GENTRY.WebApp.Controllers
                     return Unauthorized(result);
                 }
 
-                // 3. Tìm user để lấy thông tin đầy đủ cho claims
-                var user = await _loginService.GetUserByEmailAsync(request.Email);
-                if (user == null)
-                {
-                    return Unauthorized(new LoginResponse
-                    {
-                        Success = false,
-                        Message = "Không tìm thấy thông tin người dùng",
-                        Email = "",
-                        FullName = "",
-                        Role = ""
-                    });
-                }
-
-                // 4. Tạo Claims cho cookie session
-                var claims = new List<Claim>
-                {
-                    new Claim("Id", user.Id.ToString()),
-                    new Claim(ClaimTypes.Email, user.Email),
-                    new Claim(ClaimTypes.Name, user.FullName),
-                    new Claim(ClaimTypes.Role, user.Role),
-                    new Claim("IsPremium", user.IsPremium.ToString())
-                };
-
-                // 5. Tạo ClaimsIdentity và ClaimsPrincipal
-                var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-                var claimsPrincipal = new ClaimsPrincipal(claimsIdentity);
-
-                // 6. Đăng nhập (tạo cookie session)
-                await HttpContext.SignInAsync(
-                    CookieAuthenticationDefaults.AuthenticationScheme,
-                    claimsPrincipal,
-                    new AuthenticationProperties
-                    {
-                        IsPersistent = false, // Session cookie (xóa khi đóng browser)
-                        ExpiresUtc = DateTimeOffset.UtcNow.AddHours(1) // 1 giờ như config
-                    });
-
-                // 7. Trả kết quả thành công
-                return Ok(new { 
-                    success = true,
-                    data = result
-                });
+                // 3. Trả kết quả thành công (JWT đã được tạo trong LoginService)
+                return Ok(result);
             }
             catch (Exception ex)
             {
@@ -159,14 +124,14 @@ namespace GENTRY.WebApp.Controllers
         /// </summary>
         [HttpPost("logout")]
         [Authorize] // Yêu cầu đã đăng nhập
-        public async Task<IActionResult> Logout()
+        public IActionResult Logout()
         {
             try
             {
-                // 1. Xóa cookie session
-                await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-
-                // 2. Trả kết quả
+                // Với JWT, logout chỉ cần client xóa token
+                // Server không cần làm gì đặc biệt
+                // Nếu muốn blacklist token, có thể implement thêm
+                
                 return Ok(new { Success = true, Message = "Đăng xuất thành công" });
             }
             catch (Exception ex)
@@ -251,6 +216,90 @@ namespace GENTRY.WebApp.Controllers
                 {
                     Success = false,
                     Message = "Lỗi máy chủ nội bộ"
+                });
+            }
+        }
+
+        /// <summary>
+        /// Làm mới JWT token
+        /// POST: api/auth/refresh-token
+        /// </summary>
+        [HttpPost("refresh-token")]
+        public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
+        {
+            try
+            {
+                // 1. Validate model
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(new LoginResponse
+                    {
+                        Success = false,
+                        Message = "Dữ liệu không hợp lệ",
+                        Email = "",
+                        FullName = "",
+                        Role = ""
+                    });
+                }
+
+                // 2. Validate access token (có thể expired)
+                var userId = _jwtService.GetUserIdFromToken(request.AccessToken);
+                if (userId == null)
+                {
+                    return Unauthorized(new LoginResponse
+                    {
+                        Success = false,
+                        Message = "Access token không hợp lệ",
+                        Email = "",
+                        FullName = "",
+                        Role = ""
+                    });
+                }
+
+                // 3. Lấy thông tin user bằng ID
+                var user = await _repository.GetByIdAsync<GENTRY.WebApp.Models.User>(userId.Value);
+                
+                if (user == null || !user.IsActive)
+                {
+                    return Unauthorized(new LoginResponse
+                    {
+                        Success = false,
+                        Message = "Người dùng không tồn tại hoặc đã bị khóa",
+                        Email = "",
+                        FullName = "",
+                        Role = ""
+                    });
+                }
+
+                // 4. Tạo token mới
+                var newAccessToken = _jwtService.GenerateAccessToken(user);
+                var newRefreshToken = _jwtService.GenerateRefreshToken();
+                var expiryInHours = int.Parse(_configuration["JWT:ExpiryInHours"] ?? "24");
+                var tokenExpiry = DateTime.UtcNow.AddHours(expiryInHours);
+
+                return Ok(new LoginResponse
+                {
+                    Success = true,
+                    Message = "Làm mới token thành công",
+                    Email = user.Email,
+                    FullName = user.FullName,
+                    Role = user.Role,
+                    AccessToken = newAccessToken,
+                    RefreshToken = newRefreshToken,
+                    TokenExpiry = tokenExpiry,
+                    IsPremium = user.IsPremium,
+                    IsActive = user.IsActive
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new LoginResponse
+                {
+                    Success = false,
+                    Message = "Lỗi máy chủ nội bộ",
+                    Email = "",
+                    FullName = "",
+                    Role = ""
                 });
             }
         }
