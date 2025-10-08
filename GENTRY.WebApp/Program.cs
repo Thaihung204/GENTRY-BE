@@ -1,5 +1,7 @@
-﻿using Microsoft.AspNetCore.Authentication.Cookies;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 using GENTRY.WebApp.Models;
 using GENTRY.WebApp.Services.Interfaces;
 using GENTRY.WebApp.Services.Services;
@@ -33,6 +35,7 @@ builder.Services.AddScoped<IOutfitAIService, OutfitAIService>();
 builder.Services.AddScoped<IGeminiAIService, GeminiAIService>();
 builder.Services.AddScoped<IAffiliateService, AffiliateService>();
 builder.Services.AddScoped<IExceptionHandler, GENTRY.WebApp.Services.ExceptionHandler>();
+builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddHttpContextAccessor(); // Để inject vào BaseService
 
 // ------------------- AutoMapper -------------------
@@ -50,89 +53,80 @@ builder.Services.AddCors(options =>
         policy.WithOrigins("http://localhost:3000") // FE React
               .AllowAnyHeader()
               .AllowAnyMethod()
-              .AllowCredentials(); // cho phép gửi cookie
+              .AllowCredentials(); // cho phép gửi Authorization header
     });
 });
 
 builder.Services.AddRouting(options => options.LowercaseUrls = true);
 
-// ------------------- COOKIE AUTH -------------------
-//builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-//    .AddCookie(options =>
-//    {
-//        options.LoginPath = "/account/login";
-//        options.LogoutPath = "/account/logout";
-//        options.ExpireTimeSpan = TimeSpan.FromHours(1);
-//        options.Cookie.HttpOnly = true;              // FE không đọc cookie được
-
-//        // ⚡ FIX: SameSite và Secure policy phải phù hợp với nhau
-//        if (builder.Environment.IsDevelopment())
-//        {
-//            // Development: cho phép HTTP, dùng SameSite.Lax thay vì None
-//            options.Cookie.SameSite = SameSiteMode.Lax; 
-//            options.Cookie.SecurePolicy = CookieSecurePolicy.None;
-//        }
-//        else
-//        {
-//            // Production: bắt buộc HTTPS, có thể dùng SameSite.None
-//            options.Cookie.SameSite = SameSiteMode.None; 
-//            options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-//        }
-
-//        options.ExpireTimeSpan = TimeSpan.FromHours(1);
-//        options.SlidingExpiration = true; 
-
-//        // ⚡ Trả JSON thay vì redirect khi chưa login hoặc bị cấm quyền
-//        options.Events = new CookieAuthenticationEvents
-//        {
-//            OnRedirectToLogin = context =>
-//            {
-//                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-//                return Task.CompletedTask;
-//            },
-//            OnRedirectToAccessDenied = context =>
-//            {
-//                context.Response.StatusCode = StatusCodes.Status403Forbidden;
-//                return Task.CompletedTask;
-//            }
-//        };
-//    });
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-    .AddCookie(options =>
+// ------------------- JWT AUTH -------------------
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
     {
-        options.LoginPath = "/account/login";
-        options.LogoutPath = "/account/logout";
-        options.ExpireTimeSpan = TimeSpan.FromHours(1);
-        options.Cookie.HttpOnly = true;
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = builder.Configuration["JWT:Issuer"],
+        ValidAudience = builder.Configuration["JWT:Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(
+            builder.Configuration["JWT:SecretKey"] ?? throw new ArgumentNullException("JWT SecretKey is required"))),
+        ClockSkew = TimeSpan.Zero
+    };
 
-        if (builder.Environment.IsDevelopment())
+    // Xử lý lỗi JWT
+    options.Events = new JwtBearerEvents
+    {
+        OnAuthenticationFailed = context =>
         {
-            // Phải để SameSite=None mới gửi cookie qua cổng khác (localhost:3000 -> 5001)
-            options.Cookie.SameSite = SameSiteMode.None;
-            options.Cookie.SecurePolicy = CookieSecurePolicy.Always; // bắt buộc HTTPS
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            context.Response.ContentType = "application/json";
+            
+            var result = System.Text.Json.JsonSerializer.Serialize(new 
+            { 
+                Success = false, 
+                Message = "Token không hợp lệ",
+                Error = context.Exception.Message
+            });
+            
+            return context.Response.WriteAsync(result);
+        },
+        OnChallenge = context =>
+        {
+            context.HandleResponse();
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            context.Response.ContentType = "application/json";
+            
+            var result = System.Text.Json.JsonSerializer.Serialize(new 
+            { 
+                Success = false, 
+                Message = "Bạn cần đăng nhập để truy cập tài nguyên này" 
+            });
+            
+            return context.Response.WriteAsync(result);
+        },
+        OnForbidden = context =>
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            context.Response.ContentType = "application/json";
+            
+            var result = System.Text.Json.JsonSerializer.Serialize(new 
+            { 
+                Success = false, 
+                Message = "Bạn không có quyền truy cập tài nguyên này" 
+            });
+            
+            return context.Response.WriteAsync(result);
         }
-        else
-        {
-            options.Cookie.SameSite = SameSiteMode.None;
-            options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-        }
-
-        options.SlidingExpiration = true;
-
-        options.Events = new CookieAuthenticationEvents
-        {
-            OnRedirectToLogin = context =>
-            {
-                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                return Task.CompletedTask;
-            },
-            OnRedirectToAccessDenied = context =>
-            {
-                context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                return Task.CompletedTask;
-            }
-        };
-    });
+    };
+});
 
 
 builder.Services.AddAuthorization();
