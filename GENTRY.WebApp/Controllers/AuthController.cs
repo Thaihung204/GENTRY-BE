@@ -8,7 +8,7 @@ using System.Security.Claims;
 
 namespace GENTRY.WebApp.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/auth")]
     [ApiController]
     public class AuthController : BaseController
     {

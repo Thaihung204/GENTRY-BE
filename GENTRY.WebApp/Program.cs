@@ -48,12 +48,13 @@ builder.Services.AddHttpClient<AffiliateService>();
 // ------------------- CORS -------------------
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowFrontend", policy =>
+    options.AddPolicy("AllowFrontend", builder =>
     {
-        policy.WithOrigins("http://localhost:3000") // FE React
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials(); // cho phép gửi Authorization header
+        builder
+            .WithOrigins("http://localhost:3000", "https://gentry.vercel.app") // chỉ rõ domain
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
 });
 
