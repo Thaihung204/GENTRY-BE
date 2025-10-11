@@ -21,7 +21,7 @@ namespace GENTRY.WebApp.Controllers
         }
 
         /// <summary>
-        /// Chatbot endpoint - Tạo outfit recommendation từ yêu cầu của user
+        /// Chatbot endpoint - Tạo outfit recommendation từ yêu cầu của user (sử dụng OpenAI)
         /// </summary>
         /// <param name="request">Yêu cầu từ user qua chatbot</param>
         /// <returns>Outfit recommendation với hình ảnh</returns>
@@ -57,6 +57,48 @@ namespace GENTRY.WebApp.Controllers
                 {
                     Success = false,
                     Message = "Có lỗi hệ thống xảy ra. Vui lòng thử lại sau."
+                });
+            }
+        }
+
+        /// <summary>
+        /// Chatbot endpoint với Gemini AI - Tạo outfit recommendation từ items có sẵn trong tủ đồ
+        /// </summary>
+        /// <param name="request">Yêu cầu từ user qua chatbot</param>
+        /// <returns>Outfit recommendation từ tủ đồ sử dụng Gemini AI</returns>
+        [HttpPost("chat/gemini")]
+        public async Task<ActionResult<OutfitAIResponseDto>> GenerateOutfitRecommendationWithGemini([FromBody] OutfitAIRequestDto request)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(new OutfitAIResponseDto
+                    {
+                        Success = false,
+                        Message = "Dữ liệu đầu vào không hợp lệ."
+                    });
+                }
+
+                var geminiService = HttpContext.RequestServices.GetRequiredService<IGeminiAIService>();
+                var response = await geminiService.GenerateOutfitFromWardrobeAsync(request);
+
+                if (response.Success)
+                {
+                    return Ok(response);
+                }
+                else
+                {
+                    return BadRequest(response);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in GenerateOutfitRecommendationWithGemini for user {UserId}", request.UserId);
+                return StatusCode(500, new OutfitAIResponseDto
+                {
+                    Success = false,
+                    Message = "Có lỗi hệ thống xảy ra khi sử dụng Gemini AI. Vui lòng thử lại sau."
                 });
             }
         }
@@ -246,6 +288,64 @@ namespace GENTRY.WebApp.Controllers
         }
 
         /// <summary>
+        /// Test Gemini chatbot với wardrobe items (development only)
+        /// </summary>
+        /// <param name="userId">User ID để test</param>
+        /// <param name="message">Test message</param>
+        /// <returns>Gemini wardrobe outfit response</returns>
+        [HttpPost("test-gemini-wardrobe")]
+        public async Task<ActionResult> TestGeminiWardrobe([FromBody] TestGeminiWardrobeRequest request)
+        {
+            try
+            {
+                if (request.UserId == Guid.Empty)
+                {
+                    return BadRequest(new { message = "UserId không hợp lệ" });
+                }
+
+                if (string.IsNullOrEmpty(request.Message))
+                {
+                    return BadRequest(new { message = "Message không được để trống" });
+                }
+
+                var geminiService = HttpContext.RequestServices.GetRequiredService<IGeminiAIService>();
+
+                var testRequest = new OutfitAIRequestDto
+                {
+                    UserId = request.UserId,
+                    UserMessage = request.Message,
+                    Occasion = request.Occasion,
+                    WeatherCondition = request.WeatherCondition,
+                    Season = request.Season,
+                    AdditionalPreferences = request.AdditionalPreferences
+                };
+
+                var response = await geminiService.GenerateOutfitFromWardrobeAsync(testRequest);
+
+                return Ok(new
+                {
+                    status = "success",
+                    service = "Gemini Wardrobe AI",
+                    timestamp = DateTime.UtcNow,
+                    message = "Test Gemini wardrobe chatbot thành công",
+                    testRequest = testRequest,
+                    geminiResponse = response
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Gemini wardrobe test failed");
+                return StatusCode(500, new
+                {
+                    status = "failed",
+                    service = "Gemini Wardrobe AI",
+                    message = "Lỗi khi test Gemini wardrobe chatbot",
+                    error = ex.Message
+                });
+            }
+        }
+
+        /// <summary>
         /// Endpoint để test kết nối AI (development only)
         /// </summary>
         /// <returns>Status của AI service</returns>
@@ -259,7 +359,16 @@ namespace GENTRY.WebApp.Controllers
                     status = "healthy",
                     service = "OutfitAI",
                     timestamp = DateTime.UtcNow,
-                    message = "AI Outfit service đang hoạt động bình thường."
+                    message = "AI Outfit service đang hoạt động bình thường.",
+                    availableEndpoints = new[]
+                    {
+                        "/api/OutfitAI/chat - OpenAI chatbot",
+                        "/api/OutfitAI/chat/gemini - Gemini AI chatbot từ tủ đồ",
+                        "/api/OutfitAI/ai-styling - Gemini AI styling với affiliate products",
+                        "/api/OutfitAI/generate-image - Tạo hình ảnh outfit",
+                        "/api/OutfitAI/test-gemini - Test Gemini connection",
+                        "/api/OutfitAI/test-gemini-wardrobe - Test Gemini wardrobe chatbot"
+                    }
                 });
             }
             catch (Exception ex)
@@ -273,5 +382,15 @@ namespace GENTRY.WebApp.Controllers
     public class TestGeminiRequest
     {
         public string Prompt { get; set; } = null!;
+    }
+
+    public class TestGeminiWardrobeRequest
+    {
+        public Guid UserId { get; set; }
+        public string Message { get; set; } = null!;
+        public string? Occasion { get; set; }
+        public string? WeatherCondition { get; set; }
+        public string? Season { get; set; }
+        public string? AdditionalPreferences { get; set; }
     }
 }
