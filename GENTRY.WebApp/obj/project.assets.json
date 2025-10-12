@@ -11154,23 +11154,23 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\ADMIN\\.nuget\\packages\\": {},
+    "C:\\Users\\ASUS\\.nuget\\packages\\": {},
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\ADMIN\\OneDrive\\Máy tính\\GENTRY-BE\\GENTRY.WebApp\\GENTRY.WebApp.csproj",
+      "projectUniqueName": "E:\\GENTRY-BE\\GENTRY.WebApp\\GENTRY.WebApp.csproj",
       "projectName": "GENTRY.WebApp",
-      "projectPath": "C:\\Users\\ADMIN\\OneDrive\\Máy tính\\GENTRY-BE\\GENTRY.WebApp\\GENTRY.WebApp.csproj",
-      "packagesPath": "C:\\Users\\ADMIN\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\ADMIN\\OneDrive\\Máy tính\\GENTRY-BE\\GENTRY.WebApp\\obj\\",
+      "projectPath": "E:\\GENTRY-BE\\GENTRY.WebApp\\GENTRY.WebApp.csproj",
+      "packagesPath": "C:\\Users\\ASUS\\.nuget\\packages\\",
+      "outputPath": "E:\\GENTRY-BE\\GENTRY.WebApp\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
       ],
       "configFilePaths": [
-        "C:\\Users\\ADMIN\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Users\\ASUS\\AppData\\Roaming\\NuGet\\NuGet.Config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],

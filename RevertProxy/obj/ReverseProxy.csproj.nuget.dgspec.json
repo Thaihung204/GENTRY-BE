@@ -1,23 +1,23 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\ADMIN\\OneDrive\\Máy tính\\GENTRY-BE\\RevertProxy\\ReverseProxy.csproj": {}
+    "E:\\GENTRY-BE\\RevertProxy\\ReverseProxy.csproj": {}
   },
   "projects": {
-    "C:\\Users\\ADMIN\\OneDrive\\Máy tính\\GENTRY-BE\\RevertProxy\\ReverseProxy.csproj": {
+    "E:\\GENTRY-BE\\RevertProxy\\ReverseProxy.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\ADMIN\\OneDrive\\Máy tính\\GENTRY-BE\\RevertProxy\\ReverseProxy.csproj",
+        "projectUniqueName": "E:\\GENTRY-BE\\RevertProxy\\ReverseProxy.csproj",
         "projectName": "ReverseProxy",
-        "projectPath": "C:\\Users\\ADMIN\\OneDrive\\Máy tính\\GENTRY-BE\\RevertProxy\\ReverseProxy.csproj",
-        "packagesPath": "C:\\Users\\ADMIN\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\ADMIN\\OneDrive\\Máy tính\\GENTRY-BE\\RevertProxy\\obj\\",
+        "projectPath": "E:\\GENTRY-BE\\RevertProxy\\ReverseProxy.csproj",
+        "packagesPath": "C:\\Users\\ASUS\\.nuget\\packages\\",
+        "outputPath": "E:\\GENTRY-BE\\RevertProxy\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
         ],
         "configFilePaths": [
-          "C:\\Users\\ADMIN\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Users\\ASUS\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],

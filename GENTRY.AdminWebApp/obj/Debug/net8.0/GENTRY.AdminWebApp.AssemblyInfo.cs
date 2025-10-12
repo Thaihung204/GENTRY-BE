@@ -15,7 +15,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("GENTRY.AdminWebApp")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+336fb87a6846d4ff1093630c105b9ce3953c3a5a")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+44e681ddaab9df72388d0ca5f8b3fda08ca7c0b9")]
 [assembly: System.Reflection.AssemblyProductAttribute("GENTRY.AdminWebApp")]
 [assembly: System.Reflection.AssemblyTitleAttribute("GENTRY.AdminWebApp")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
