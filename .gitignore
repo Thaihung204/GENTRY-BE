@@ -364,3 +364,7 @@ FodyWeavers.xsd
 /RestX.WebApp/appsettings.json
 /GENTRY.WebApp/appsettings.json
 /GENTRY.WebApp/appsettings.json
+
+# Build folders
+/GENTRY.WebApp/bin/
+/GENTRY-BE/GENTRY.WebApp/obj
