@@ -8,6 +8,7 @@ using GENTRY.WebApp.Services.Services;
 using GENTRY.WebApp.Services;
 using RestX.WebApp.Services;
 using GENTRY.WebApp.Middleware;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -82,49 +83,64 @@ builder.Services.AddAuthentication(options =>
         ClockSkew = TimeSpan.Zero
     };
 
-    // Xử lý lỗi JWT
     options.Events = new JwtBearerEvents
     {
         OnAuthenticationFailed = context =>
         {
-            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            context.Response.ContentType = "application/json";
-            
-            var result = System.Text.Json.JsonSerializer.Serialize(new 
-            { 
-                Success = false, 
-                Message = "Token không hợp lệ",
-                Error = context.Exception.Message
-            });
-            
-            return context.Response.WriteAsync(result);
+            if (!context.Response.HasStarted)
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                context.Response.ContentType = "application/json";
+
+                var result = JsonSerializer.Serialize(new
+                {
+                    Success = false,
+                    Message = "Token không hợp lệ",
+                    Error = context.Exception.Message
+                });
+
+                return context.Response.WriteAsync(result);
+            }
+
+            return Task.CompletedTask;
         },
         OnChallenge = context =>
         {
             context.HandleResponse();
-            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            context.Response.ContentType = "application/json";
-            
-            var result = System.Text.Json.JsonSerializer.Serialize(new 
-            { 
-                Success = false, 
-                Message = "Bạn cần đăng nhập để truy cập tài nguyên này" 
-            });
-            
-            return context.Response.WriteAsync(result);
+
+            if (!context.Response.HasStarted)
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                context.Response.ContentType = "application/json";
+
+                var result = JsonSerializer.Serialize(new
+                {
+                    Success = false,
+                    Message = "Bạn cần đăng nhập để truy cập tài nguyên này"
+                });
+
+                return context.Response.WriteAsync(result);
+            }
+
+            return Task.CompletedTask;
         },
         OnForbidden = context =>
         {
-            context.Response.StatusCode = StatusCodes.Status403Forbidden;
-            context.Response.ContentType = "application/json";
-            
-            var result = System.Text.Json.JsonSerializer.Serialize(new 
-            { 
-                Success = false, 
-                Message = "Bạn không có quyền truy cập tài nguyên này" 
-            });
-            
-            return context.Response.WriteAsync(result);
+            if (!context.Response.HasStarted)
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                context.Response.ContentType = "application/json";
+
+                var result = JsonSerializer.Serialize(new
+                {
+                    Success = false,
+                    Message = "Bạn không có quyền truy cập tài nguyên này"
+                });
+
+                return context.Response.WriteAsync(result);
+            }
+
+            return Task.CompletedTask;
         }
     };
 });

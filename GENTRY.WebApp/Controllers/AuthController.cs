@@ -107,14 +107,8 @@ namespace GENTRY.WebApp.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new LoginResponse
-                {
-                    Success = false,
-                    Message = "Lỗi máy chủ nội bộ",
-                    Email = "",
-                    FullName = "",
-                    Role = ""
-                });
+                this.exceptionHandler.RaiseException(ex, "An error occurred while loggin.");
+                return Json(new { success = false, message = ex.Message });
             }
         }
 

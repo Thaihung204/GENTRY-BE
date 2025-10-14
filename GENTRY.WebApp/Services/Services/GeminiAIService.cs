@@ -245,21 +245,9 @@ namespace GENTRY.WebApp.Services.Services
         {
             try
             {
-                // 1. Lấy tất cả items của user từ tủ đồ
+                // 1️⃣ Lấy items của user từ tủ đồ
                 var userItemsFromService = await _itemService.GetItemsByUserIdAsync(request.UserId);
-                var userItems = userItemsFromService.Select(item => new OutfitItemDto
-                {
-                    ItemId = item.Id,
-                    ItemName = item.Name,
-                    ItemImageUrl = item.FileUrl,
-                    CategoryName = item.CategoryName ?? "",
-                    ColorName = item.ColorName,
-                    Brand = item.Brand,
-                    Size = item.Size,
-                    ItemType = item.CategoryName ?? ""
-                }).ToList();
-
-                if (!userItems.Any())
+                if (userItemsFromService == null || !userItemsFromService.Any())
                 {
                     return new OutfitAIResponseDto
                     {
@@ -268,39 +256,93 @@ namespace GENTRY.WebApp.Services.Services
                     };
                 }
 
-                // 2. Lấy thông tin user để cá nhân hóa
-                var user = await Repo.GetOneAsync<User>(u => u.Id == request.UserId);
+                var userItems = userItemsFromService.Select(item => new OutfitItemDto
+                {
+                    ItemId = item.Id,
+                    ItemName = item.Name ?? "Không rõ tên",
+                    ItemImageUrl = item.FileUrl ?? "",
+                    CategoryName = item.CategoryName ?? "",
+                    ColorName = item.ColorName ?? "Không rõ màu",
+                    Brand = item.Brand ?? "Không rõ thương hiệu",
+                    Size = item.Size,
+                    ItemType = item.CategoryName ?? ""
+                }).ToList();
 
-                // 3. Tạo prompt cho Gemini AI
+                // 2️⃣ Lấy thông tin user để cá nhân hóa
+                var user = await Repo.GetOneAsync<User>(u => u.Id == request.UserId);
+                if (user == null)
+                {
+                    _logger.LogWarning("Không tìm thấy user {UserId}", request.UserId);
+                }
+
+                // 3️⃣ Tạo prompt cho Gemini AI
                 var prompt = BuildWardrobeOutfitPrompt(request, userItems, user);
 
-                // 4. Gọi Gemini AI để phân tích và đề xuất
-                var aiResponse = await CallGeminiApiAsync(prompt);
+                // 4️⃣ Gọi Gemini API (có try/catch bên trong)
+                string aiResponse = string.Empty;
+                try
+                {
+                    aiResponse = await CallGeminiApiAsync(prompt);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Lỗi khi gọi Gemini API");
+                    return new OutfitAIResponseDto
+                    {
+                        Success = false,
+                        Message = "Không thể kết nối tới dịch vụ Gemini AI. Vui lòng thử lại sau."
+                    };
+                }
 
-                // 5. Parse response từ Gemini AI
-                var selectedItems = ParseGeminiWardrobeResponse(aiResponse, userItems);
+                // 5️⃣ Parse response AI
+                var selectedItems = new List<OutfitItemDto>();
+                try
+                {
+                    selectedItems = ParseGeminiWardrobeResponse(aiResponse, userItems) ?? new List<OutfitItemDto>();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Lỗi khi phân tích kết quả Gemini AI");
+                }
 
                 if (!selectedItems.Any())
                 {
                     return new OutfitAIResponseDto
                     {
                         Success = false,
-                        Message = "Không thể tạo outfit phù hợp từ các items hiện có. Vui lòng thử lại với yêu cầu khác hoặc thêm items mới."
+                        Message = "Không thể tạo outfit phù hợp từ các items hiện có. Vui lòng thử lại."
                     };
                 }
 
-                // 6. Tạo hình ảnh outfit (placeholder for now)
-                var imageUrl = await GenerateWardrobeOutfitImageAsync(selectedItems);
+                // 6️⃣ Sinh ảnh outfit (an toàn)
+                string imageUrl;
+                try
+                {
+                    imageUrl = await GenerateWardrobeOutfitImageAsync(selectedItems);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Lỗi khi tạo ảnh outfit, dùng ảnh mặc định");
+                    imageUrl = "https://placehold.co/400x400?text=Outfit+Preview";
+                }
 
-                // 7. Lưu outfit vào database
-                var outfitId = await SaveGeneratedOutfitAsync(
-                    selectedItems,
-                    request.UserId,
-                    $"Gemini AI Generated: {request.UserMessage}",
-                    request.Occasion,
-                    request.WeatherCondition,
-                    request.Season
-                );
+                // 7️⃣ Lưu outfit vào database
+                var outfitId = Guid.Empty;
+                try
+                {
+                    outfitId = await SaveGeneratedOutfitAsync(
+                        selectedItems,
+                        request.UserId,
+                        $"Gemini AI Generated: {request.UserMessage}",
+                        request.Occasion,
+                        request.WeatherCondition,
+                        request.Season
+                    );
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Lỗi khi lưu outfit vào DB");
+                }
 
                 return new OutfitAIResponseDto
                 {
@@ -314,11 +356,11 @@ namespace GENTRY.WebApp.Services.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error generating outfit from wardrobe using Gemini for user {UserId}", request.UserId);
+                _logger.LogError(ex, "Error generating outfit from wardrobe for user {UserId}", request.UserId);
                 return new OutfitAIResponseDto
                 {
                     Success = false,
-                    Message = "Có lỗi xảy ra khi tạo outfit bằng Gemini AI. Vui lòng thử lại sau."
+                    Message = "Có lỗi hệ thống xảy ra khi tạo outfit. Vui lòng thử lại sau."
                 };
             }
         }
