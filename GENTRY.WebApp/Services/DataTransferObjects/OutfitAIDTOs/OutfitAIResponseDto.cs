@@ -4,7 +4,6 @@ namespace GENTRY.WebApp.Services.DataTransferObjects.OutfitAIDTOs
     {
         public bool Success { get; set; }
         public string Message { get; set; } = null!;
-        public string? ImageUrl { get; set; }
         public Guid? GeneratedOutfitId { get; set; }
         public List<OutfitItemDto> OutfitItems { get; set; } = new List<OutfitItemDto>();
         public string? RecommendationReason { get; set; }

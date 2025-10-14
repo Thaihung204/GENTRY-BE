@@ -1,8 +1,0 @@
-C:\Users\ADMIN\OneDrive\Máy tính\GENTRY-BE\GENTRY.WebApp\obj\Debug\net8.0\staticwebassets.build.json
-C:\Users\ADMIN\OneDrive\Máy tính\GENTRY-BE\GENTRY.WebApp\obj\Debug\net8.0\staticwebassets.build.json
-C:\Users\ADMIN\OneDrive\Máy tính\GENTRY-BE\GENTRY.WebApp\obj\Debug\net8.0\staticwebassets.build.json
-C:\Users\ADMIN\OneDrive\Máy tính\GENTRY-BE\GENTRY.WebApp\obj\Debug\net8.0\staticwebassets.build.json
-C:\Users\ADMIN\OneDrive\Máy tính\GENTRY-BE\GENTRY.WebApp\obj\Debug\net8.0\staticwebassets.build.json
-C:\Users\ADMIN\OneDrive\Máy tính\GENTRY-BE\GENTRY.WebApp\obj\Debug\net8.0\staticwebassets.build.json
-C:\Users\ADMIN\OneDrive\Máy tính\GENTRY-BE\GENTRY.WebApp\obj\Debug\net8.0\staticwebassets.build.json
-C:\Users\ADMIN\OneDrive\Máy tính\GENTRY-BE\GENTRY.WebApp\obj\Debug\net8.0\staticwebassets.build.json

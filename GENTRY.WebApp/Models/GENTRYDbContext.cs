@@ -53,6 +53,7 @@ public partial class GENTRYDbContext : DbContext
     public virtual DbSet<Admin> Admins { get; set; }
     public virtual DbSet<Weather> Weathers { get; set; }
     public virtual DbSet<Occasion> Occasions { get; set; }
+    public virtual DbSet<ChatHistory> ChatHistories { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -83,6 +84,23 @@ public partial class GENTRYDbContext : DbContext
                   .WithMany(u => u.Collections)
                   .HasForeignKey(c => c.UserId)
                   .OnDelete(DeleteBehavior.Restrict); // hoặc NoAction
+        });
+
+        modelBuilder.Entity<ChatHistory>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            // Quan hệ với User
+            entity.HasOne(e => e.User)
+                  .WithMany() // không cần ICollection trong User để tránh phức tạp
+                  .HasForeignKey(e => e.UserId)
+                  .OnDelete(DeleteBehavior.Restrict); // tránh multiple cascade paths
+
+            // Quan hệ với GeneratedOutfit (optional)
+            entity.HasOne(e => e.GeneratedOutfit)
+                  .WithMany() // không cần ICollection trong Outfit
+                  .HasForeignKey(e => e.GeneratedOutfitId)
+                  .OnDelete(DeleteBehavior.SetNull); // xóa outfit thì set null, giữ lại chat history
         });
     }
 

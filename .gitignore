@@ -332,6 +332,9 @@ __pycache__/
 *.odx.cs
 *.xsd.cs
 
+
+
+
 # OpenCover UI analysis results
 OpenCover/
 
@@ -368,3 +371,35 @@ FodyWeavers.xsd
 # Build folders
 /GENTRY.WebApp/bin/
 /GENTRY-BE/GENTRY.WebApp/obj
+/GENTRY-BE/GENTRY.WebApp/bin/
+/GENTRY-BE/ReverseProxy/bin/
+
+# Build results
+bin/
+obj/
+Debug/
+Release/
+*.dll
+*.exe
+*.pdb
+*.cache
+*.log
+*.json
+*.mdb
+*.db
+*.DS_Store
+
+# User-specific files
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Visual Studio generated files
+.vs/
+*.ide/
+
+# Publish outputs
+publish/
+out/
+
