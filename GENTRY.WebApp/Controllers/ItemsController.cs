@@ -111,6 +111,148 @@ namespace GENTRY.WebApp.Controllers
         }
 
         /// <summary>
+        /// Lấy thông tin chi tiết một item theo ID
+        /// GET: api/items/{id}
+        /// </summary>
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetItemById(Guid id)
+        {
+            try
+            {
+                // Lấy thông tin người dùng hiện tại
+                var currentUser = await _loginService.GetCurrentUserAsync();
+                if (currentUser == null)
+                {
+                    return Unauthorized(new { Success = false, Message = "Người dùng chưa đăng nhập hoặc không tồn tại" });
+                }
+
+                // Lấy thông tin item
+                var item = await _itemService.GetItemByIdAsync(id);
+
+                if (item == null)
+                {
+                    return NotFound(new 
+                    { 
+                        Success = false, 
+                        Message = "Không tìm thấy trang phục hoặc bạn không có quyền truy cập" 
+                    });
+                }
+
+                return Ok(new 
+                { 
+                    Success = true, 
+                    Message = "Lấy thông tin trang phục thành công",
+                    Data = item
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new 
+                { 
+                    Success = false, 
+                    Message = "Lỗi máy chủ nội bộ",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        /// <summary>
+        /// Cập nhật thông tin item
+        /// PUT: api/items/{id}
+        /// </summary>
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateItem(Guid id, [FromForm] UpdateItemRequest request)
+        {
+            try
+            {
+                // Kiểm tra validation
+                if (!ModelState.IsValid)
+                {
+                    var errors = ModelState.Values.SelectMany(v => v.Errors)
+                                              .Select(e => e.ErrorMessage)
+                                              .ToList();
+                    return BadRequest(new 
+                    { 
+                        Success = false, 
+                        Message = "Dữ liệu không hợp lệ",
+                        Errors = errors
+                    });
+                }
+
+                // Lấy thông tin người dùng hiện tại
+                var currentUser = await _loginService.GetCurrentUserAsync();
+                if (currentUser == null)
+                {
+                    return Unauthorized(new { Success = false, Message = "Người dùng chưa đăng nhập hoặc không tồn tại" });
+                }
+
+                // Cập nhật item
+                var updatedItem = await _itemService.UpdateItemAsync(id, request);
+
+                return Ok(new 
+                { 
+                    Success = true, 
+                    Message = "Cập nhật trang phục thành công",
+                    Data = updatedItem
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new 
+                { 
+                    Success = false, 
+                    Message = "Lỗi máy chủ nội bộ",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        /// <summary>
+        /// Xóa item
+        /// DELETE: api/items/{id}
+        /// </summary>
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteItem(Guid id)
+        {
+            try
+            {
+                // Lấy thông tin người dùng hiện tại
+                var currentUser = await _loginService.GetCurrentUserAsync();
+                if (currentUser == null)
+                {
+                    return Unauthorized(new { Success = false, Message = "Người dùng chưa đăng nhập hoặc không tồn tại" });
+                }
+
+                // Xóa item
+                var result = await _itemService.DeleteItemAsync(id);
+
+                if (!result)
+                {
+                    return NotFound(new 
+                    { 
+                        Success = false, 
+                        Message = "Không tìm thấy trang phục hoặc bạn không có quyền xóa" 
+                    });
+                }
+
+                return Ok(new 
+                { 
+                    Success = true, 
+                    Message = "Xóa trang phục thành công"
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new 
+                { 
+                    Success = false, 
+                    Message = "Lỗi máy chủ nội bộ",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        /// <summary>
         /// Lấy tất cả items của một người dùng cụ thể (cho admin)
         /// GET: api/items/user/{userId}
         /// </summary>

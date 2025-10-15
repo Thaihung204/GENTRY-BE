@@ -66,6 +66,32 @@ namespace GENTRY.WebApp.Services.Services
             }
         }
 
+        public async Task<ItemDto?> GetItemByIdAsync(Guid itemId)
+        {
+            try
+            {
+                var currentUserId = UserId;
+                
+                var items = await Repo.GetAsync<Item>(
+                    filter: i => i.Id == itemId && i.UserId == currentUserId,
+                    includeProperties: "Category,File,Color"
+                );
+
+                var item = items.FirstOrDefault();
+                if (item == null)
+                {
+                    return null;
+                }
+
+                var itemDto = _mapper.Map<ItemDto>(item);
+                return itemDto;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
         public async Task<ItemDto> AddItemAsync(AddItemRequest request)
         {
             try
@@ -123,6 +149,110 @@ namespace GENTRY.WebApp.Services.Services
             catch (Exception ex)
             {
                 throw new Exception($"Lỗi khi tạo item mới: {ex.Message}");
+            }
+        }
+
+        public async Task<ItemDto> UpdateItemAsync(Guid itemId, UpdateItemRequest request)
+        {
+            try
+            {
+                var currentUserId = UserId;
+
+                // Kiểm tra item có tồn tại và thuộc về user hiện tại không
+                var existingItems = await Repo.GetAsync<Item>(
+                    filter: i => i.Id == itemId && i.UserId == currentUserId
+                );
+
+                var existingItem = existingItems.FirstOrDefault();
+                if (existingItem == null)
+                {
+                    throw new Exception("Không tìm thấy trang phục hoặc bạn không có quyền chỉnh sửa");
+                }
+
+                // Xử lý upload ảnh mới nếu có
+                int? fileId = existingItem.FileId; // Giữ nguyên file cũ nếu không upload mới
+                
+                if (request.ImageFile != null)
+                {
+                    // Upload ảnh mới lên Cloudinary
+                    var uploadResult = await _fileService.UploadImageAsync(request.ImageFile, "gentry-items");
+                    
+                    if (!uploadResult.Success)
+                    {
+                        throw new Exception($"Lỗi upload ảnh: {uploadResult.ErrorMessage}");
+                    }
+
+                    // Lưu thông tin file mới vào database
+                    var savedFile = await _fileService.SaveFileInfoAsync(
+                        request.ImageFile.FileName,
+                        uploadResult.Url!,
+                        currentUserId
+                    );
+
+                    fileId = savedFile.Id;
+                }
+
+                // Cập nhật thông tin item
+                existingItem.Name = request.Name;
+                existingItem.CategoryId = request.CategoryId;
+                existingItem.Brand = request.Brand;
+                existingItem.ColorId = request.ColorId;
+                existingItem.Tags = request.Tags;
+                existingItem.FileId = fileId;
+                existingItem.ModifiedBy = currentUserId.ToString();
+                existingItem.ModifiedDate = DateTime.UtcNow;
+
+                // Cập nhật vào database
+                Repo.Update(existingItem, currentUserId.ToString());
+                await Repo.SaveAsync();
+
+                // Lấy lại item với thông tin đầy đủ
+                var updatedItems = await Repo.GetAsync<Item>(
+                    filter: i => i.Id == itemId,
+                    includeProperties: "Category,File,Color"
+                );
+
+                var updatedItem = updatedItems.FirstOrDefault();
+                if (updatedItem == null)
+                {
+                    throw new Exception("Không thể cập nhật trang phục");
+                }
+
+                // Sử dụng AutoMapper để chuyển đổi sang DTO
+                var itemDto = _mapper.Map<ItemDto>(updatedItem);
+                return itemDto;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Lỗi khi cập nhật trang phục: {ex.Message}");
+            }
+        }
+
+        public async Task<bool> DeleteItemAsync(Guid itemId)
+        {
+            try
+            {
+                var currentUserId = UserId;
+
+                // Kiểm tra item có tồn tại và thuộc về user hiện tại không
+                var existingItems = await Repo.GetAsync<Item>(
+                    filter: i => i.Id == itemId && i.UserId == currentUserId
+                );
+
+                var existingItem = existingItems.FirstOrDefault();
+                if (existingItem == null)
+                {
+                    return false; // Item không tồn tại hoặc không có quyền xóa
+                }
+
+                // Xóa item khỏi database
+                Repo.Delete(existingItem);
+                await Repo.SaveAsync();
+                return true;
+            }
+            catch
+            {
+                return false;
             }
         }
     }
