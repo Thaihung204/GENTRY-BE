@@ -1,21 +1,60 @@
 ﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using System.Text;
+using System.Text.Json;
 using GENTRY.WebApp.Models;
 using GENTRY.WebApp.Services.Interfaces;
 using GENTRY.WebApp.Services.Services;
 using GENTRY.WebApp.Services;
 using RestX.WebApp.Services;
 using GENTRY.WebApp.Middleware;
-using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // ------------------- Add services -------------------
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+
+// ------------------- Swagger + JWT Bearer -------------------
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "GENTRY API",
+        Version = "v1",
+        Description = "API documentation for GENTRY WebApp"
+    });
+
+    // Cấu hình JWT Bearer cho Swagger
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = @"JWT Authorization header sử dụng Bearer scheme.  
+                        Nhập vào: **Bearer {token}**  
+                        (Ví dụ: 'Bearer abc123xyz')",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer",
+        BearerFormat = "JWT"
+    });
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            new string[] {}
+        }
+    });
+});
 
 // ------------------- Database Context -------------------
 builder.Services.AddDbContext<GENTRYDbContext>(options =>
@@ -52,7 +91,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowFrontend", builder =>
     {
         builder
-            .WithOrigins("http://localhost:3000", "https://gentry.vercel.app") // chỉ rõ domain
+            .WithOrigins("http://localhost:3000", "https://gentry.vercel.app")
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials();
@@ -145,11 +184,11 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
+// ------------------- Middleware pipeline -------------------
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -161,7 +200,7 @@ app.UseHttpsRedirection();
 app.UseCors("AllowFrontend");
 
 app.UseAuthentication();
-app.UseGENTRYContext(); // Phải đặt sau UseAuthentication để có thể đọc claims
+app.UseGENTRYContext(); // Middleware custom đọc claims
 app.UseAuthorization();
 
 app.MapControllers();
