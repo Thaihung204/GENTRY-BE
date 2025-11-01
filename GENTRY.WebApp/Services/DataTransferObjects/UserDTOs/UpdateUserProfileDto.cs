@@ -13,7 +13,6 @@ namespace GENTRY.WebApp.Services.DataTransferObjects.UserDTOs
         [MaxLength(50)]
         public string? LastName { get; set; }
         
-        public int? AvatarFileId { get; set; }
         
         [MaxLength(20)]
         public string? Gender { get; set; }
