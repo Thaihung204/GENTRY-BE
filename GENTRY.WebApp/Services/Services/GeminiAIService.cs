@@ -13,7 +13,6 @@ namespace GENTRY.WebApp.Services.Services
         private readonly HttpClient _httpClient;
         private readonly IConfiguration _configuration;
         private readonly ILogger<GeminiAIService> _logger;
-        private readonly IAffiliateService _affiliateService;
         private readonly IItemService _itemService;
         private readonly string _geminiApiKey;
         private readonly string _geminiEndpoint;
@@ -24,13 +23,11 @@ namespace GENTRY.WebApp.Services.Services
             HttpClient httpClient,
             IConfiguration configuration,
             ILogger<GeminiAIService> logger,
-            IAffiliateService affiliateService,
             IItemService itemService) : base(repository, httpContextAccessor)
         {
             _httpClient = httpClient;
             _configuration = configuration;
             _logger = logger;
-            _affiliateService = affiliateService;
             _itemService = itemService;
 
             _geminiApiKey = _configuration["Gemini:ApiKey"]
@@ -39,66 +36,9 @@ namespace GENTRY.WebApp.Services.Services
                 ?? "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent";
         }
 
-        public async Task<AiStylingResponseDto> GenerateOutfitSuggestionsAsync(AiStylingRequestDto request)
-        {
-            try
-            {
-                var userPreferences = await GetUserPreferencesAsync(request.UserId);
-                var contextData = await GetContextDataAsync(request);
-                var prompt = BuildStylingPrompt(request, userPreferences, contextData);
-                var aiText = await CallGeminiApiAsync(prompt);
-                var outfits = ParseAIResponse(aiText);
+       
 
-                foreach (var suggestion in outfits)
-                {
-                    var affiliateItems = await _affiliateService.FindAffiliateProductsAsync(
-                        suggestion, request.MaxBudget, request.PreferredSize);
-                    suggestion.Items = affiliateItems;
-                    suggestion.TotalPrice = affiliateItems.Sum(i => i.Price);
-                    suggestion.OutfitImageUrl = await GenerateOutfitImageAsync(suggestion);
-                }
-
-                return new AiStylingResponseDto
-                {
-                    Success = true,
-                    Message = "Đã tạo gợi ý outfit thành công!",
-                    OutfitSuggestions = outfits,
-                    AiAnalysis = ExtractAnalysisFromResponse(aiText)
-                };
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error generating outfit suggestions for user {UserId}", request.UserId);
-                return new AiStylingResponseDto
-                {
-                    Success = false,
-                    Message = "Có lỗi xảy ra khi tạo gợi ý outfit. Vui lòng thử lại sau."
-                };
-            }
-        }
-
-        public async Task<string?> GenerateOutfitImageAsync(OutfitSuggestionDto outfit)
-        {
-            try
-            {
-                var imagePrompt = $"Fashion outfit: {outfit.StyleDescription}. Items: {string.Join(", ", outfit.Items.Select(i => i.ItemName))}. Professional fashion photography style, clean background.";
-                await Task.Delay(10);
-                return "https://images.example.com/outfit-placeholder.jpg";
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error generating outfit image");
-                return null;
-            }
-        }
-
-        public async Task<string> AnalyzeUserPreferencesAsync(Guid userId)
-        {
-            var outfits = await Repo.GetAsync<Outfit>(o => o.UserId == userId);
-            var items = await Repo.GetAsync<Item>(i => i.UserId == userId);
-            var prompt = BuildUserAnalysisPrompt(outfits.ToList(), items.ToList());
-            return await CallGeminiApiAsync(prompt);
-        }
+       
 
         private async Task<string> CallGeminiApiAsync(string prompt)
         {
@@ -128,125 +68,13 @@ namespace GENTRY.WebApp.Services.Services
             return data?.candidates?[0]?.content?.parts?[0]?.text ?? string.Empty;
         }
 
-        private string BuildStylingPrompt(AiStylingRequestDto request, Dictionary<string, object> userPreferences, Dictionary<string, object> contextData)
-        {
-            var sb = new StringBuilder();
-            sb.AppendLine("Bạn là chuyên gia tư vấn thời trang AI. Tạo gợi ý outfit phù hợp.");
-            sb.AppendLine("YÊU CẦU:");
-            if (contextData.ContainsKey("categories")) sb.AppendLine($"- Danh mục: {contextData["categories"]}");
-            if (contextData.ContainsKey("styles")) sb.AppendLine($"- Phong cách: {contextData["styles"]}");
-            if (contextData.ContainsKey("occasion")) sb.AppendLine($"- Dịp: {contextData["occasion"]}");
-            if (contextData.ContainsKey("weather")) sb.AppendLine($"- Thời tiết: {contextData["weather"]}");
-            if (contextData.ContainsKey("colors")) sb.AppendLine($"- Màu sắc: {contextData["colors"]}");
-            if (request.MaxBudget.HasValue) sb.AppendLine($"- Ngân sách tối đa: {request.MaxBudget:N0} VND");
-            if (!string.IsNullOrEmpty(request.Gender)) sb.AppendLine($"- Giới tính: {request.Gender}");
-            if (!string.IsNullOrEmpty(request.PreferredSize)) sb.AppendLine($"- Size: {request.PreferredSize}");
-            if (!string.IsNullOrEmpty(request.AdditionalRequirements)) sb.AppendLine($"- Yêu cầu thêm: {request.AdditionalRequirements}");
-
-            sb.AppendLine();
-            sb.AppendLine($"Trả về JSON với {request.NumberOfSuggestions} outfit trong schema:");
-            sb.AppendLine(@"{""outfits"":[{""outfitId"":"""",""outfitName"":"""",""styleDescription"":"""",""matchingReason"":"""",""confidenceScore"":0,""items"":[{""itemName"":"""",""categoryName"":"""",""color"":"""",""estimatedPrice"":0,""searchKeywords"":""""}]}], ""analysis"":""""}");
-            
-            return sb.ToString();
-        }
-
-        private async Task<Dictionary<string, object>> GetContextDataAsync(AiStylingRequestDto request)
-        {
-            var ctx = new Dictionary<string, object>();
-            if (request.CategoryIds.Any())
-            {
-                var cats = await Repo.GetAsync<Category>(c => request.CategoryIds.Contains(c.Id));
-                ctx["categories"] = string.Join(", ", cats.Select(c => c.Name));
-            }
-            if (request.StyleIds.Any())
-            {
-                var styles = await Repo.GetAsync<Style>(s => request.StyleIds.Contains(s.Id));
-                ctx["styles"] = string.Join(", ", styles.Select(s => s.Name));
-            }
-            if (request.OccasionId.HasValue)
-            {
-                var occasion = await Repo.GetByIdAsync<Occasion>(request.OccasionId.Value);
-                if (occasion != null) ctx["occasion"] = occasion.Name;
-            }
-            if (request.WeatherId.HasValue)
-            {
-                var weather = await Repo.GetByIdAsync<Weather>(request.WeatherId.Value);
-                if (weather != null) ctx["weather"] = weather.Name;
-            }
-            if (request.ColorIds.Any())
-            {
-                var colors = await Repo.GetAsync<Color>(c => request.ColorIds.Contains(c.Id));
-                ctx["colors"] = string.Join(", ", colors.Select(c => c.Name));
-            }
-            return ctx;
-        }
-
-        private async Task<Dictionary<string, object>> GetUserPreferencesAsync(Guid userId)
-        {
-            var user = await Repo.GetOneAsync<User>(u => u.Id == userId);
-            var preferences = new Dictionary<string, object>();
-            if (user != null)
-            {
-                if (!string.IsNullOrEmpty(user.BodyType)) preferences["bodyType"] = user.BodyType;
-                if (!string.IsNullOrEmpty(user.StylePreferences)) preferences["stylePreferences"] = user.StylePreferences;
-                if (!string.IsNullOrEmpty(user.SizePreferences)) preferences["sizePreferences"] = user.SizePreferences;
-            }
-            return preferences;
-        }
-
-        private List<OutfitSuggestionDto> ParseAIResponse(string aiText)
-        {
-            try
-            {
-                var data = JsonConvert.DeserializeObject<dynamic>(aiText);
-                var outfits = data?.outfits;
-                var list = new List<OutfitSuggestionDto>();
-                if (outfits != null)
-                {
-                    foreach (var o in outfits)
-                    {
-                        list.Add(new OutfitSuggestionDto
-                        {
-                            OutfitId = o?.outfitId ?? Guid.NewGuid().ToString(),
-                            OutfitName = o?.outfitName ?? "Outfit Suggestion",
-                            StyleDescription = o?.styleDescription ?? string.Empty,
-                            MatchingReason = o?.matchingReason ?? string.Empty,
-                            ConfidenceScore = (int)(o?.confidenceScore ?? 80)
-                        });
-                    }
-                }
-                return list;
-            }
-            catch
-            {
-                return new List<OutfitSuggestionDto>();
-            }
-        }
-
-        private string BuildUserAnalysisPrompt(List<Outfit> outfits, List<Item> items)
-        {
-            var sb = new StringBuilder();
-            sb.AppendLine("Phân tích sở thích thời trang của người dùng.");
-            sb.AppendLine($"Outfits: {outfits.Count}, Items: {items.Count}");
-            return sb.ToString();
-        }
-
-        private string ExtractAnalysisFromResponse(string aiText)
-        {
-            try
-            {
-                var data = JsonConvert.DeserializeObject<dynamic>(aiText);
-                return data?.analysis ?? "";
-            }
-            catch { return string.Empty; }
-        }
-
-        public async Task<OutfitAIResponseDto> GenerateOutfitFromWardrobeAsync(OutfitAIRequestDto request)
+        
+        public async Task<OutfitAIResponseDto> GenerateOutfitFromWardrobeAsync(OutfitAIRequestDto request, Guid userId)
         {
             try
             {
                 // 1️⃣ Lấy items của user từ tủ đồ
-                var userItemsFromService = await _itemService.GetItemsByUserIdAsync(request.UserId);
+                var userItemsFromService = await _itemService.GetItemsByUserIdAsync(userId);
                 if (userItemsFromService == null || !userItemsFromService.Any())
                 {
                     return new OutfitAIResponseDto
@@ -269,10 +97,15 @@ namespace GENTRY.WebApp.Services.Services
                 }).ToList();
 
                 // 2️⃣ Lấy thông tin user để cá nhân hóa
-                var user = await Repo.GetOneAsync<User>(u => u.Id == request.UserId);
+                var user = await Repo.GetOneAsync<User>(u => u.Id == userId);
                 if (user == null)
                 {
-                    _logger.LogWarning("Không tìm thấy user {UserId}", request.UserId);
+                    _logger.LogWarning("Không tìm thấy user {UserId}", userId);
+                    return new OutfitAIResponseDto
+                    {
+                        Success = false,
+                        Message = "Không tìm thấy thông tin người dùng."
+                    };
                 }
 
                 // 3️⃣ Tạo prompt cho Gemini AI
@@ -286,11 +119,11 @@ namespace GENTRY.WebApp.Services.Services
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Lỗi khi gọi Gemini API");
+                    _logger.LogError(ex, "Lỗi khi gọi GENTRY API");
                     return new OutfitAIResponseDto
                     {
                         Success = false,
-                        Message = "Không thể kết nối tới dịch vụ Gemini AI. Vui lòng thử lại sau."
+                        Message = "Không thể kết nối tới dịch vụ GENTRY AI. Vui lòng thử lại sau."
                     };
                 }
 
@@ -302,7 +135,7 @@ namespace GENTRY.WebApp.Services.Services
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Lỗi khi phân tích kết quả Gemini AI");
+                    _logger.LogError(ex, "Lỗi khi phân tích kết quả GENTRY AI");
                 }
 
                 if (!selectedItems.Any())
@@ -332,11 +165,8 @@ namespace GENTRY.WebApp.Services.Services
                 {
                     outfitId = await SaveGeneratedOutfitAsync(
                         selectedItems,
-                        request.UserId,
-                        $"Gemini AI Generated: {request.UserMessage}",
-                        request.Occasion,
-                        request.WeatherCondition,
-                        request.Season
+                        userId,
+                        $"Gemini AI Generated: {request.UserMessage}"
                     );
                 }
                 catch (Exception ex)
@@ -344,10 +174,20 @@ namespace GENTRY.WebApp.Services.Services
                     _logger.LogWarning(ex, "Lỗi khi lưu outfit vào DB");
                 }
 
+                // 8️⃣ Lưu chat message vào database
+                try
+                {
+                    await SaveChatMessageAsync(userId, request.UserMessage, aiResponse);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Lỗi khi lưu chat message vào DB");
+                }
+
                 return new OutfitAIResponseDto
                 {
                     Success = true,
-                    Message = "Đã tạo outfit từ tủ đồ của bạn bằng Gemini AI!",
+                    Message = "Đã tạo outfit từ tủ đồ của bạn bằng GENTRY AI!",
                     ImageUrl = imageUrl,
                     GeneratedOutfitId = outfitId,
                     OutfitItems = selectedItems,
@@ -356,7 +196,7 @@ namespace GENTRY.WebApp.Services.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error generating outfit from wardrobe for user {UserId}", request.UserId);
+                _logger.LogError(ex, "Error generating outfit from wardrobe for user {UserId}", userId);
                 return new OutfitAIResponseDto
                 {
                     Success = false,
@@ -369,7 +209,7 @@ namespace GENTRY.WebApp.Services.Services
         {
             var prompt = new StringBuilder();
 
-            prompt.AppendLine("Bạn là một stylist chuyên nghiệp sử dụng AI Gemini. Nhiệm vụ của bạn là tạo outfit hoàn hảo từ các items có sẵn trong tủ đồ của khách hàng.");
+            prompt.AppendLine("Bạn là một stylist chuyên nghiệp sử dụng GENTRY AI. Nhiệm vụ của bạn là tạo outfit hoàn hảo từ các items có sẵn trong tủ đồ của khách hàng.");
             prompt.AppendLine();
 
             // Thông tin khách hàng
@@ -389,14 +229,6 @@ namespace GENTRY.WebApp.Services.Services
             // Yêu cầu cụ thể
             prompt.AppendLine("YÊU CẦU TỪ KHÁCH HÀNG:");
             prompt.AppendLine($"- Mô tả: {request.UserMessage}");
-            if (!string.IsNullOrEmpty(request.Occasion))
-                prompt.AppendLine($"- Dịp: {request.Occasion}");
-            if (!string.IsNullOrEmpty(request.WeatherCondition))
-                prompt.AppendLine($"- Thời tiết: {request.WeatherCondition}");
-            if (!string.IsNullOrEmpty(request.Season))
-                prompt.AppendLine($"- Mùa: {request.Season}");
-            if (!string.IsNullOrEmpty(request.AdditionalPreferences))
-                prompt.AppendLine($"- Ghi chú thêm: {request.AdditionalPreferences}");
             prompt.AppendLine();
 
             // Danh sách items có sẵn
@@ -498,15 +330,14 @@ namespace GENTRY.WebApp.Services.Services
             }
         }
 
-        private async Task<Guid> SaveGeneratedOutfitAsync(List<OutfitItemDto> outfitItems, Guid userId, string description, string? occasion = null, string? weather = null, string? season = null)
+        private async Task<Guid> SaveGeneratedOutfitAsync(List<OutfitItemDto> outfitItems, Guid userId, string description)
         {
             var outfit = new Outfit
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
-                Name = $"Gemini AI Outfit {DateTime.Now:dd/MM/yyyy HH:mm}",
+                Name = $"GENTRY AI Outfit {DateTime.Now:dd/MM/yyyy HH:mm}",
                 Description = description,
-                Season = season,
                 IsAiGenerated = true
             };
 
@@ -538,11 +369,53 @@ namespace GENTRY.WebApp.Services.Services
                 var responseData = JsonConvert.DeserializeObject<dynamic>(aiResponse);
                 return responseData?.recommendationReason?.ToString() ?? 
                        responseData?.outfitDescription?.ToString() ?? 
-                       "Gemini AI đã tạo outfit dựa trên phân tích các items trong tủ đồ và sở thích của bạn.";
+                       "GENTRY AI đã tạo outfit dựa trên phân tích các items trong tủ đồ và sở thích của bạn.";
             }
             catch
             {
-                return "Gemini AI đã tạo outfit dựa trên phân tích các items trong tủ đồ và sở thích của bạn.";
+                return "GENTRY AI đã tạo outfit dựa trên phân tích các items trong tủ đồ và sở thích của bạn.";
+            }
+        }
+
+        private async Task SaveChatMessageAsync(Guid userId, string userMessage, string aiResponse)
+        {
+            try
+            {
+                var chatMessage = new AIChatMessage
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    UserMessage = userMessage,
+                    AIResponse = aiResponse,
+                    CreatedAt = DateTime.UtcNow,
+                    IsFromUser = true
+                };
+
+                await Repo.CreateAsync(chatMessage);
+                await Repo.SaveAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error saving chat message for user {UserId}", userId);
+                throw;
+            }
+        }
+
+        public async Task<List<AIChatMessage>> GetChatHistoryAsync(Guid userId)
+        {
+            try
+            {
+                var chatHistory = await Repo.GetAsync<AIChatMessage>(
+                    filter: cm => cm.UserId == userId,
+                    orderBy: q => q.OrderByDescending(cm => cm.CreatedAt)
+                );
+
+                return chatHistory.ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving chat history for user {UserId}", userId);
+                return new List<AIChatMessage>();
             }
         }
     }

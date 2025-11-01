@@ -1,64 +1,30 @@
+using GENTRY.WebApp.Models;
+using GENTRY.WebApp.Services.DataTransferObjects.ChatDTOs;
 using GENTRY.WebApp.Services.DataTransferObjects.OutfitAIDTOs;
 using GENTRY.WebApp.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GENTRY.WebApp.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class OutfitAIController : BaseController
     {
-        private readonly IOutfitAIService _outfitAIService;
         private readonly ILogger<OutfitAIController> _logger;
+        private readonly IGeminiAIService _geminiAIService;
+        private readonly ILoginService _loginService;
 
         public OutfitAIController(
-            IOutfitAIService outfitAIService,
             ILogger<OutfitAIController> logger,
-            IExceptionHandler exceptionHandler) : base(exceptionHandler)
+            IExceptionHandler exceptionHandler,
+            IGeminiAIService geminiAIService,
+            ILoginService loginService) : base(exceptionHandler)
         {
-            _outfitAIService = outfitAIService;
             _logger = logger;
-        }
-
-        /// <summary>
-        /// Chatbot endpoint - Tạo outfit recommendation từ yêu cầu của user (sử dụng OpenAI)
-        /// </summary>
-        /// <param name="request">Yêu cầu từ user qua chatbot</param>
-        /// <returns>Outfit recommendation với hình ảnh</returns>
-        [HttpPost("chat")]
-        public async Task<ActionResult<OutfitAIResponseDto>> GenerateOutfitRecommendation([FromBody] OutfitAIRequestDto request)
-        {
-            try
-            {
-                if (!ModelState.IsValid)
-                {
-                    return BadRequest(new OutfitAIResponseDto
-                    {
-                        Success = false,
-                        Message = "Dữ liệu đầu vào không hợp lệ."
-                    });
-                }
-
-                var response = await _outfitAIService.GenerateOutfitRecommendationAsync(request);
-
-                if (response.Success)
-                {
-                    return Ok(response);
-                }
-                else
-                {
-                    return BadRequest(response);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error in GenerateOutfitRecommendation for user {UserId}", request.UserId);
-                return StatusCode(500, new OutfitAIResponseDto
-                {
-                    Success = false,
-                    Message = "Có lỗi hệ thống xảy ra. Vui lòng thử lại sau."
-                });
-            }
+            _geminiAIService = geminiAIService;
+            _loginService = loginService;
         }
 
         /// <summary>
@@ -66,7 +32,7 @@ namespace GENTRY.WebApp.Controllers
         /// </summary>
         /// <param name="request">Yêu cầu từ user qua chatbot</param>
         /// <returns>Outfit recommendation từ tủ đồ sử dụng Gemini AI</returns>
-        [HttpPost("chat/gemini")]
+        [HttpPost("chat")]
         public async Task<ActionResult<OutfitAIResponseDto>> GenerateOutfitRecommendationWithGemini([FromBody] OutfitAIRequestDto request)
         {
             try
@@ -80,8 +46,18 @@ namespace GENTRY.WebApp.Controllers
                     });
                 }
 
-                var geminiService = HttpContext.RequestServices.GetRequiredService<IGeminiAIService>();
-                var response = await geminiService.GenerateOutfitFromWardrobeAsync(request);
+                // Lấy userId từ authentication context
+                var user = await _loginService.GetCurrentUserAsync();
+                if (user == null)
+                {
+                    return Unauthorized(new OutfitAIResponseDto
+                    {
+                        Success = false,
+                        Message = "Bạn cần đăng nhập để sử dụng tính năng này."
+                    });
+                }
+
+                var response = await _geminiAIService.GenerateOutfitFromWardrobeAsync(request, user.Id);
 
                 if (response.Success)
                 {
@@ -94,303 +70,55 @@ namespace GENTRY.WebApp.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error in GenerateOutfitRecommendationWithGemini for user {UserId}", request.UserId);
+                var user = await _loginService.GetCurrentUserAsync();
+                _logger.LogError(ex, "Error in GenerateOutfitRecommendationWithGemini for user {UserId}", user?.Id);
                 return StatusCode(500, new OutfitAIResponseDto
                 {
                     Success = false,
-                    Message = "Có lỗi hệ thống xảy ra khi sử dụng Gemini AI. Vui lòng thử lại sau."
+                    Message = "Có lỗi hệ thống xảy ra khi sử dụng GENTRY AI. Vui lòng thử lại sau."
                 });
             }
         }
 
-
         /// <summary>
-        /// AI Styling - Gợi ý outfit dựa trên filters và trả về affiliate products
+        /// Lấy lịch sử chat của người dùng với AI
         /// </summary>
-        [HttpPost("ai-styling")]
-        public async Task<ActionResult<AiStylingResponseDto>> GenerateAIStyling([FromBody] AiStylingRequestDto request)
+        /// <returns>Danh sách chat messages</returns>
+        [HttpGet("chat-history")]
+        public async Task<ActionResult<List<ChatDto>>> GetChatHistory()
         {
             try
             {
-                if (!ModelState.IsValid)
+                // Lấy userId từ authentication context
+                var user = await _loginService.GetCurrentUserAsync();
+                if (user == null)
                 {
-                    return BadRequest(new AiStylingResponseDto
-                    {
-                        Success = false,
-                        Message = "Dữ liệu đầu vào không hợp lệ."
-                    });
+                    return Unauthorized(new { Success = false, Message = "Bạn cần đăng nhập để xem lịch sử chat." });
                 }
 
-                var gemini = HttpContext.RequestServices.GetRequiredService<IGeminiAIService>();
-                var response = await gemini.GenerateOutfitSuggestionsAsync(request);
-                if (response.Success) return Ok(response);
-                return BadRequest(response);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error in AI Styling for user {UserId}", request.UserId);
-                return StatusCode(500, new AiStylingResponseDto
-                {
-                    Success = false,
-                    Message = "Có lỗi hệ thống xảy ra. Vui lòng thử lại sau."
-                });
-            }
-        }
-
-
-
-        /// <summary>
-        /// Tạo hình ảnh outfit từ danh sách items đã chọn
-        /// </summary>
-        /// <param name="request">Danh sách items và user ID</param>
-        /// <returns>URL của hình ảnh outfit</returns>
-        [HttpPost("generate-image")]
-        public async Task<ActionResult<string>> GenerateOutfitImage([FromBody] GenerateImageRequestDto request)
-        {
-            try
-            {
-                if (!ModelState.IsValid)
-                {
-                    return BadRequest("Dữ liệu đầu vào không hợp lệ.");
-                }
-
-                var imageUrl = await _outfitAIService.GenerateOutfitImageAsync(request.OutfitItems, request.UserId);
-
-                if (!string.IsNullOrEmpty(imageUrl))
-                {
-                    return Ok(new { imageUrl = imageUrl });
-                }
-                else
-                {
-                    return BadRequest(new { message = "Không thể tạo hình ảnh outfit." });
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error generating outfit image for user {UserId}", request.UserId);
-                return StatusCode(500, new { message = "Có lỗi xảy ra khi tạo hình ảnh." });
-            }
-        }
-
-        /// <summary>
-        /// Endpoint để test kết nối Gemini AI
-        /// </summary>
-        /// <returns>Status của Gemini API connection</returns>
-        [HttpGet("test-gemini")]
-        public async Task<ActionResult> TestGeminiConnection()
-        {
-            try
-            {
-                var geminiService = HttpContext.RequestServices.GetRequiredService<IGeminiAIService>();
+                var chatHistory = await _geminiAIService.GetChatHistoryAsync(user.Id);
                 
-                // Test với một câu hỏi đơn giản
-                var testUserId = Guid.NewGuid();
-                var testAnalysis = await geminiService.AnalyzeUserPreferencesAsync(testUserId);
+                // Map AIChatMessage to ChatDto
+                var chatDtos = chatHistory.Select(chat => new ChatDto
+                {
+                    UserId = chat.UserId,
+                    UserMessage = chat.UserMessage,
+                    AIResponse = chat.AIResponse,
+                    CreatedAt = chat.CreatedAt,
+                    IsFromUser = chat.IsFromUser,
+                    AdditionalContext = chat.AdditionalContext
+                }).ToList();
                 
-                return Ok(new
-                {
-                    status = "success",
-                    service = "Gemini AI",
-                    timestamp = DateTime.UtcNow,
-                    message = "Gemini API đang hoạt động bình thường",
-                    testResult = testAnalysis,
-                    apiConnected = true
-                });
-            }
-            catch (HttpRequestException httpEx)
-            {
-                _logger.LogError(httpEx, "Gemini API connection failed");
-                return StatusCode(502, new 
-                { 
-                    status = "failed", 
-                    service = "Gemini AI",
-                    message = "Không thể kết nối tới Gemini API. Kiểm tra API key và network.",
-                    error = httpEx.Message,
-                    apiConnected = false
-                });
-            }
-            catch (InvalidOperationException configEx)
-            {
-                _logger.LogError(configEx, "Gemini configuration error");
-                return StatusCode(500, new 
-                { 
-                    status = "failed", 
-                    service = "Gemini AI",
-                    message = "Lỗi cấu hình Gemini API key. Kiểm tra appsettings.json.",
-                    error = configEx.Message,
-                    apiConnected = false
-                });
+                return Ok(new { Success = true, Data = chatDtos });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Gemini test failed");
-                return StatusCode(500, new 
-                { 
-                    status = "failed", 
-                    service = "Gemini AI",
-                    message = "Lỗi không xác định khi test Gemini API.",
-                    error = ex.Message,
-                    apiConnected = false
-                });
+                var user = await _loginService.GetCurrentUserAsync();
+                _logger.LogError(ex, "Error retrieving chat history for user {UserId}", user?.Id);
+                return StatusCode(500, new { Success = false, Message = "Có lỗi hệ thống xảy ra khi lấy lịch sử chat." });
             }
         }
 
-        /// <summary>
-        /// Test Gemini với prompt custom
-        /// </summary>
-        /// <param name="prompt">Test prompt</param>
-        /// <returns>Gemini response</returns>
-        [HttpPost("test-gemini-prompt")]
-        public async Task<ActionResult> TestGeminiWithPrompt([FromBody] TestGeminiRequest request)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(request.Prompt))
-                {
-                    return BadRequest(new { message = "Prompt không được để trống" });
-                }
-
-                var geminiService = HttpContext.RequestServices.GetRequiredService<IGeminiAIService>();
-                
-                // Gọi trực tiếp CallGeminiApiAsync thông qua reflection (cho test)
-                var geminiServiceType = geminiService.GetType();
-                var callGeminiMethod = geminiServiceType.GetMethod("CallGeminiApiAsync", 
-                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                
-                if (callGeminiMethod != null)
-                {
-                    var task = (Task<string>)callGeminiMethod.Invoke(geminiService, new object[] { request.Prompt });
-                    var response = await task;
-                    
-                    return Ok(new
-                    {
-                        status = "success",
-                        prompt = request.Prompt,
-                        response = response,
-                        timestamp = DateTime.UtcNow
-                    });
-                }
-                else
-                {
-                    return StatusCode(500, new { message = "Không thể access CallGeminiApiAsync method" });
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Custom Gemini prompt test failed");
-                return StatusCode(500, new 
-                { 
-                    status = "failed",
-                    message = "Lỗi khi test custom prompt",
-                    error = ex.Message
-                });
-            }
-        }
-
-        /// <summary>
-        /// Test Gemini chatbot với wardrobe items (development only)
-        /// </summary>
-        /// <param name="userId">User ID để test</param>
-        /// <param name="message">Test message</param>
-        /// <returns>Gemini wardrobe outfit response</returns>
-        [HttpPost("test-gemini-wardrobe")]
-        public async Task<ActionResult> TestGeminiWardrobe([FromBody] TestGeminiWardrobeRequest request)
-        {
-            try
-            {
-                if (request.UserId == Guid.Empty)
-                {
-                    return BadRequest(new { message = "UserId không hợp lệ" });
-                }
-
-                if (string.IsNullOrEmpty(request.Message))
-                {
-                    return BadRequest(new { message = "Message không được để trống" });
-                }
-
-                var geminiService = HttpContext.RequestServices.GetRequiredService<IGeminiAIService>();
-
-                var testRequest = new OutfitAIRequestDto
-                {
-                    UserId = request.UserId,
-                    UserMessage = request.Message,
-                    Occasion = request.Occasion,
-                    WeatherCondition = request.WeatherCondition,
-                    Season = request.Season,
-                    AdditionalPreferences = request.AdditionalPreferences
-                };
-
-                var response = await geminiService.GenerateOutfitFromWardrobeAsync(testRequest);
-
-                return Ok(new
-                {
-                    status = "success",
-                    service = "Gemini Wardrobe AI",
-                    timestamp = DateTime.UtcNow,
-                    message = "Test Gemini wardrobe chatbot thành công",
-                    testRequest = testRequest,
-                    geminiResponse = response
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Gemini wardrobe test failed");
-                return StatusCode(500, new
-                {
-                    status = "failed",
-                    service = "Gemini Wardrobe AI",
-                    message = "Lỗi khi test Gemini wardrobe chatbot",
-                    error = ex.Message
-                });
-            }
-        }
-
-        /// <summary>
-        /// Endpoint để test kết nối AI (development only)
-        /// </summary>
-        /// <returns>Status của AI service</returns>
-        [HttpGet("health")]
-        public ActionResult GetHealthStatus()
-        {
-            try
-            {
-                return Ok(new
-                {
-                    status = "healthy",
-                    service = "OutfitAI",
-                    timestamp = DateTime.UtcNow,
-                    message = "AI Outfit service đang hoạt động bình thường.",
-                    availableEndpoints = new[]
-                    {
-                        "/api/OutfitAI/chat - OpenAI chatbot",
-                        "/api/OutfitAI/chat/gemini - Gemini AI chatbot từ tủ đồ",
-                        "/api/OutfitAI/ai-styling - Gemini AI styling với affiliate products",
-                        "/api/OutfitAI/generate-image - Tạo hình ảnh outfit",
-                        "/api/OutfitAI/test-gemini - Test Gemini connection",
-                        "/api/OutfitAI/test-gemini-wardrobe - Test Gemini wardrobe chatbot"
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Health check failed");
-                return StatusCode(500, new { status = "unhealthy", message = "AI service gặp sự cố." });
-            }
-        }
     }
-
-    public class TestGeminiRequest
-    {
-        public string Prompt { get; set; } = null!;
-    }
-
-    public class TestGeminiWardrobeRequest
-    {
-        public Guid UserId { get; set; }
-        public string Message { get; set; } = null!;
-        public string? Occasion { get; set; }
-        public string? WeatherCondition { get; set; }
-        public string? Season { get; set; }
-        public string? AdditionalPreferences { get; set; }
-    }
+        
 }

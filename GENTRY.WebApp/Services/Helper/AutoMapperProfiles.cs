@@ -7,6 +7,7 @@ using GENTRY.WebApp.Services.DataTransferObjects.ColorDTOs;
 using GENTRY.WebApp.Services.DataTransferObjects.StyleDTOs;
 using GENTRY.WebApp.Services.DataTransferObjects.WeatherDTOs;
 using GENTRY.WebApp.Services.DataTransferObjects.OccasionDTOs;
+using GENTRY.WebApp.Services.DataTransferObjects.ChatDTOs;
 
 namespace GENTRY.WebApp.Services.Helper
 {
@@ -121,6 +122,8 @@ namespace GENTRY.WebApp.Services.Helper
 
             // Map Occasion to OccasionDto
             CreateMap<Occasion, OccasionDto>().ReverseMap();
+
+            CreateMap<AIChatMessage, ChatDto>().ReverseMap();
         }
     }
 }

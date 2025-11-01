@@ -53,6 +53,7 @@ public partial class GENTRYDbContext : DbContext
     public virtual DbSet<Admin> Admins { get; set; }
     public virtual DbSet<Weather> Weathers { get; set; }
     public virtual DbSet<Occasion> Occasions { get; set; }
+    public virtual DbSet<AIChatMessage> AIChatMessages { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
