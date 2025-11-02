@@ -54,6 +54,7 @@ public partial class GENTRYDbContext : DbContext
     public virtual DbSet<Weather> Weathers { get; set; }
     public virtual DbSet<Occasion> Occasions { get; set; }
     public virtual DbSet<AIChatMessage> AIChatMessages { get; set; }
+    public virtual DbSet<Feedback> Feedbacks { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -84,6 +85,15 @@ public partial class GENTRYDbContext : DbContext
                   .WithMany(u => u.Collections)
                   .HasForeignKey(c => c.UserId)
                   .OnDelete(DeleteBehavior.Restrict); // hoặc NoAction
+        });
+
+        // Cấu hình Feedback relationship với User (optional)
+        modelBuilder.Entity<Feedback>(entity =>
+        {
+            entity.HasOne(f => f.User)
+                  .WithMany() // Feedback không có collection trong User, chỉ là optional relationship
+                  .HasForeignKey(f => f.UserId)
+                  .OnDelete(DeleteBehavior.SetNull); // Nếu user bị xóa, set UserId = null
         });
     }
 
