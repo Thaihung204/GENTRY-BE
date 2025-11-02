@@ -113,6 +113,53 @@ namespace GENTRY.WebApp.Controllers
         }
 
         /// <summary>
+        /// Đăng nhập admin
+        /// POST: api/auth/admin/login
+        /// </summary>
+        [HttpPost("admin/login")]
+        public async Task<IActionResult> AdminLogin([FromBody] LoginRequest request)
+        {
+            try
+            {
+                // 1. Validate model
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(new LoginResponse
+                    {
+                        Success = false,
+                        Message = "Email/Username và mật khẩu là bắt buộc",
+                        Email = "",
+                        FullName = "",
+                        Role = ""
+                    });
+                }
+
+                // 2. Gọi service để xác thực admin
+                var result = await _loginService.AdminLoginAsync(request);
+
+                if (!result.Success)
+                {
+                    return Unauthorized(result);
+                }
+
+                // 3. Trả kết quả thành công (JWT đã được tạo trong LoginService)
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                this.exceptionHandler.RaiseException(ex, "An error occurred while admin login.");
+                return StatusCode(500, new LoginResponse
+                {
+                    Success = false,
+                    Message = "Lỗi máy chủ nội bộ",
+                    Email = "",
+                    FullName = "",
+                    Role = ""
+                });
+            }
+        }
+
+        /// <summary>
         /// Đăng xuất người dùng
         /// POST: api/auth/logout
         /// </summary>
@@ -144,7 +191,26 @@ namespace GENTRY.WebApp.Controllers
         {
             try
             {
-                // 1. Lấy thông tin user từ service
+                // 1. Kiểm tra xem có phải là admin không
+                var admin = await _loginService.GetCurrentAdminAsync();
+                if (admin != null)
+                {
+                    return Ok(new
+                    {
+                        Success = true,
+                        Data = new
+                        {
+                            Email = admin.Email,
+                            FullName = admin.Username,
+                            Role = "Admin",
+                            IsPremium = false,
+                            IsActive = admin.IsActive,
+                            Permissions = admin.Permissions
+                        }
+                    });
+                }
+
+                // 2. Nếu không phải admin, lấy thông tin user
                 var user = await _loginService.GetCurrentUserAsync();
 
                 if (user == null)
@@ -152,7 +218,7 @@ namespace GENTRY.WebApp.Controllers
                     return Unauthorized(new { Success = false, Message = "Người dùng chưa đăng nhập hoặc không tồn tại" });
                 }
 
-                // 2. Trả thông tin user
+                // 3. Trả thông tin user
                 return Ok(new
                 {
                     Success = true,
@@ -163,6 +229,45 @@ namespace GENTRY.WebApp.Controllers
                         user.Role,
                         user.IsPremium,
                         user.IsActive
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Success = false, Message = "Lỗi máy chủ nội bộ" });
+            }
+        }
+
+        /// <summary>
+        /// Lấy thông tin admin hiện tại
+        /// GET: api/auth/current-admin
+        /// </summary>
+        [HttpGet("current-admin")]
+        [Authorize(Roles = "Admin")] // Chỉ admin mới truy cập được
+        public async Task<IActionResult> GetCurrentAdmin()
+        {
+            try
+            {
+                // 1. Lấy thông tin admin từ service
+                var admin = await _loginService.GetCurrentAdminAsync();
+
+                if (admin == null)
+                {
+                    return Unauthorized(new { Success = false, Message = "Admin chưa đăng nhập hoặc không tồn tại" });
+                }
+
+                // 2. Trả thông tin admin
+                return Ok(new
+                {
+                    Success = true,
+                    Data = new
+                    {
+                        admin.Id,
+                        admin.Email,
+                        FullName = admin.Username,
+                        Role = "Admin",
+                        admin.Permissions,
+                        admin.IsActive
                     }
                 });
             }

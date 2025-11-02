@@ -19,18 +19,28 @@ namespace GENTRY.WebApp.Middleware
 
             if (context.User?.Identity?.IsAuthenticated == true)
             {
-                // Lấy UserId từ claims
-                var userIdClaim = context.User.FindFirst("Id")?.Value;
-                if (!string.IsNullOrEmpty(userIdClaim) && Guid.TryParse(userIdClaim, out var userId))
+                // Kiểm tra UserType để phân biệt User và Admin
+                var userType = context.User.FindFirst("UserType")?.Value;
+                
+                if (userType == "Admin")
                 {
-                    gentryContext.UserId = userId;
+                    // Xử lý cho Admin (AdminId là int)
+                    var adminIdClaim = context.User.FindFirst("AdminId")?.Value ?? context.User.FindFirst("Id")?.Value;
+                    if (!string.IsNullOrEmpty(adminIdClaim) && int.TryParse(adminIdClaim, out var adminId))
+                    {
+                        // Note: GENTRYContext.AdminId là Guid, nhưng Admin.ID là int
+                        // Có thể cần cập nhật GENTRYContext để hỗ trợ int AdminId trong tương lai
+                        // Hiện tại để trống hoặc convert nếu cần
+                    }
                 }
-
-                // Lấy AdminId nếu user là admin (có thể mở rộng sau)
-                var roleClaim = context.User.FindFirst(ClaimTypes.Role)?.Value;
-                if (roleClaim == "Admin" && !string.IsNullOrEmpty(userIdClaim) && Guid.TryParse(userIdClaim, out var adminId))
+                else
                 {
-                    gentryContext.AdminId = adminId;
+                    // Xử lý cho User (UserId là Guid)
+                    var userIdClaim = context.User.FindFirst("Id")?.Value;
+                    if (!string.IsNullOrEmpty(userIdClaim) && Guid.TryParse(userIdClaim, out var userId))
+                    {
+                        gentryContext.UserId = userId;
+                    }
                 }
             }
 

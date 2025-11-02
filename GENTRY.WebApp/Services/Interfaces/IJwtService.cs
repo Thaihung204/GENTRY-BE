@@ -14,6 +14,11 @@ namespace GENTRY.WebApp.Services.Interfaces
         string GenerateAccessToken(User user);
 
         /// <summary>
+        /// Tạo JWT access token từ thông tin admin
+        /// </summary>
+        string GenerateAdminAccessToken(Admin admin);
+
+        /// <summary>
         /// Tạo refresh token
         /// </summary>
         string GenerateRefreshToken();
@@ -27,6 +32,11 @@ namespace GENTRY.WebApp.Services.Interfaces
         /// Lấy thông tin user từ JWT token
         /// </summary>
         Guid? GetUserIdFromToken(string token);
+
+        /// <summary>
+        /// Lấy thông tin admin ID từ JWT token
+        /// </summary>
+        int? GetAdminIdFromToken(string token);
 
         /// <summary>
         /// Kiểm tra token có hợp lệ không

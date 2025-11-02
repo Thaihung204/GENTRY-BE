@@ -43,8 +43,48 @@ namespace GENTRY.WebApp.Services.Services
                 new Claim(ClaimTypes.Name, user.FullName),
                 new Claim(ClaimTypes.Role, user.Role),
                 new Claim("IsPremium", user.IsPremium.ToString()),
+                new Claim("UserType", "User"),
                 new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
                 new Claim(JwtRegisteredClaimNames.Email, user.Email),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                new Claim(JwtRegisteredClaimNames.Iat, 
+                    new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds().ToString(), 
+                    ClaimValueTypes.Integer64)
+            };
+
+            var tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(claims),
+                Expires = DateTime.UtcNow.AddHours(_expiryInHours),
+                Issuer = _issuer,
+                Audience = _audience,
+                SigningCredentials = new SigningCredentials(
+                    new SymmetricSecurityKey(key), 
+                    SecurityAlgorithms.HmacSha256Signature)
+            };
+
+            var token = tokenHandler.CreateToken(tokenDescriptor);
+            return tokenHandler.WriteToken(token);
+        }
+
+        /// <summary>
+        /// Tạo JWT access token từ thông tin admin
+        /// </summary>
+        public string GenerateAdminAccessToken(Admin admin)
+        {
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var key = Encoding.UTF8.GetBytes(_secretKey);
+
+            var claims = new List<Claim>
+            {
+                new Claim("Id", admin.Id.ToString()),
+                new Claim("AdminId", admin.Id.ToString()),
+                new Claim(ClaimTypes.Email, admin.Email),
+                new Claim(ClaimTypes.Name, admin.Username),
+                new Claim(ClaimTypes.Role, "Admin"),
+                new Claim("UserType", "Admin"),
+                new Claim(JwtRegisteredClaimNames.Sub, admin.Id.ToString()),
+                new Claim(JwtRegisteredClaimNames.Email, admin.Email),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                 new Claim(JwtRegisteredClaimNames.Iat, 
                     new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds().ToString(), 
@@ -127,6 +167,11 @@ namespace GENTRY.WebApp.Services.Services
                 if (principal == null)
                     return null;
 
+                // Kiểm tra xem đây có phải là admin token không
+                var userType = principal.FindFirst("UserType")?.Value;
+                if (userType == "Admin")
+                    return null; // Admin không có Guid ID
+
                 var userIdClaim = principal.FindFirst("Id")?.Value ?? principal.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
                 
                 if (string.IsNullOrEmpty(userIdClaim))
@@ -134,6 +179,38 @@ namespace GENTRY.WebApp.Services.Services
 
                 if (Guid.TryParse(userIdClaim, out var userId))
                     return userId;
+
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Lấy thông tin admin ID từ JWT token
+        /// </summary>
+        public int? GetAdminIdFromToken(string token)
+        {
+            try
+            {
+                var principal = ValidateToken(token);
+                if (principal == null)
+                    return null;
+
+                // Kiểm tra xem đây có phải là admin token không
+                var userType = principal.FindFirst("UserType")?.Value;
+                if (userType != "Admin")
+                    return null; // Không phải admin token
+
+                var adminIdClaim = principal.FindFirst("AdminId")?.Value ?? principal.FindFirst("Id")?.Value ?? principal.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+                
+                if (string.IsNullOrEmpty(adminIdClaim))
+                    return null;
+
+                if (int.TryParse(adminIdClaim, out var adminId))
+                    return adminId;
 
                 return null;
             }

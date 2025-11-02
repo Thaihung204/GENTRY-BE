@@ -226,5 +226,92 @@ namespace GENTRY.WebApp.Services.Services
                 };
             }
         }
+
+        /// <summary>
+        /// Đăng nhập admin
+        /// </summary>
+        public async Task<LoginResponse> AdminLoginAsync(LoginRequest request)
+        {
+            try
+            {
+                // 1. Tìm admin theo email hoặc username và password
+                var admin = await Repo.GetOneAsync<Admin>(a => 
+                    (a.Email == request.Email || a.Username == request.Email) && 
+                    a.Password == request.Password &&
+                    a.IsActive == true);
+
+                if (admin == null)
+                {
+                    return new LoginResponse
+                    {
+                        Success = false,
+                        Message = "Email/Username hoặc mật khẩu không đúng",
+                        Email = "",
+                        FullName = "",
+                        Role = ""
+                    };
+                }
+
+                // Tạo JWT tokens cho admin
+                var accessToken = _jwtService.GenerateAdminAccessToken(admin);
+                var refreshToken = _jwtService.GenerateRefreshToken();
+                var expiryInHours = int.Parse(_configuration["JWT:ExpiryInHours"] ?? "24");
+                var tokenExpiry = DateTime.UtcNow.AddHours(expiryInHours);
+
+                return new LoginResponse
+                {
+                    Success = true,
+                    Message = "Đăng nhập admin thành công",
+                    Email = admin.Email,
+                    FullName = admin.Username,
+                    Role = "Admin",
+                    AccessToken = accessToken,
+                    RefreshToken = refreshToken,
+                    TokenExpiry = tokenExpiry,
+                    IsPremium = false,
+                    IsActive = admin.IsActive
+                };
+            }
+            catch (Exception ex)
+            {
+                return new LoginResponse
+                {
+                    Success = false,
+                    Message = $"Lỗi hệ thống: {ex.Message}",
+                    Email = "",
+                    FullName = "",
+                    Role = ""
+                };
+            }
+        }
+
+        /// <summary>
+        /// Lấy thông tin admin hiện tại từ claims
+        /// </summary>
+        public async Task<Admin?> GetCurrentAdminAsync()
+        {
+            try
+            {
+                var httpContext = _httpContextAccessor?.HttpContext;
+                if (httpContext?.User?.Identity?.IsAuthenticated != true)
+                    return null;
+
+                // Kiểm tra xem có phải là admin không
+                var userType = httpContext.User.FindFirst("UserType")?.Value;
+                if (userType != "Admin")
+                    return null;
+
+                var adminIdClaim = httpContext.User.FindFirst("AdminId")?.Value ?? httpContext.User.FindFirst("Id")?.Value;
+                if (string.IsNullOrEmpty(adminIdClaim) || !int.TryParse(adminIdClaim, out var adminId))
+                    return null;
+
+                var admin = await Repo.GetByIdAsync<Admin>(adminId);
+                return admin?.IsActive == true ? admin : null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
     }
 }

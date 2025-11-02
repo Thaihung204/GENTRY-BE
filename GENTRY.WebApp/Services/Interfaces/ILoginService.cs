@@ -35,5 +35,15 @@ namespace GENTRY.WebApp.Services.Interfaces
         /// </summary>
         Task<ResetPasswordResponse> ResetPasswordAsync(ResetPasswordRequest request);
 
+        /// <summary>
+        /// Đăng nhập admin
+        /// </summary>
+        Task<LoginResponse> AdminLoginAsync(LoginRequest request);
+
+        /// <summary>
+        /// Lấy thông tin admin hiện tại
+        /// </summary>
+        Task<Admin?> GetCurrentAdminAsync();
+
     }
 }
