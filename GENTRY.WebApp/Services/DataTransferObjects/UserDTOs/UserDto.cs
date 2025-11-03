@@ -12,6 +12,8 @@
 
         public bool IsActive { get; set; }
 
+        public bool IsPremium { get; set; }
+
         public string Password { get; set; } = string.Empty;
 
         public DateTime CreatedAt { get; set; }
