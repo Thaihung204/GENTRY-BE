@@ -22,6 +22,38 @@ namespace GENTRY.WebApp.Controllers
         }
 
         /// <summary>
+        /// Lấy tất cả items (không cần xác thực)
+        /// GET: api/items/all
+        /// </summary>
+        [HttpGet("all")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetAllItems()
+        {
+            try
+            {
+                // Lấy danh sách tất cả items
+                var items = await _itemService.GetAllItemsDtoAsync();
+
+                return Ok(new 
+                { 
+                    Success = true, 
+                    Message = "Lấy danh sách items thành công",
+                    Data = items,
+                    Count = items.Count
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new 
+                { 
+                    Success = false, 
+                    Message = "Lỗi máy chủ nội bộ",
+                    Error = ex.Message
+                });
+            }
+        }
+
+        /// <summary>
         /// Lấy tất cả items của người dùng hiện tại
         /// GET: api/items
         /// </summary>

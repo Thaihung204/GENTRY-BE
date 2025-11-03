@@ -34,6 +34,24 @@ namespace GENTRY.WebApp.Services.Services
             }
         }
 
+        public async Task<List<ItemDto>> GetAllItemsDtoAsync()
+        {
+            try
+            {
+                var items = await Repo.GetAsync<Item>(
+                    orderBy: q => q.OrderByDescending(i => i.CreatedDate),
+                    includeProperties: "Category,File,Color"
+                );
+
+                var itemDtos = _mapper.Map<List<ItemDto>>(items);
+                return itemDtos;
+            }
+            catch
+            {
+                return new List<ItemDto>();
+            }
+        }
+
         public async Task<List<ItemDto>> GetItemsByUserIdAsync(Guid userId)
         {
             try
